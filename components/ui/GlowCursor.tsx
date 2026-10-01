@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Mesh, Program, Renderer, Triangle } from 'ogl';
 
 const MAX_POINTS = 64;
@@ -198,6 +199,8 @@ const GlowCursor = ({
   style,
   ...rest
 }: GlowCursorProps) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef<GlowCursorConfig>({} as GlowCursorConfig);
@@ -227,7 +230,7 @@ const GlowCursor = ({
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!container || !canvas || window.matchMedia('(prefers-reduced-motion: reduce), (pointer: coarse)').matches) return;
+    if (!mounted || !container || !canvas || window.matchMedia('(prefers-reduced-motion: reduce), (pointer: coarse)').matches) return;
 
     const initialConfig = propsRef.current;
     const renderer = new Renderer({
@@ -282,8 +285,8 @@ const GlowCursor = ({
     let destroyed = false;
 
     const resize = () => {
-      width = Math.max(canvas.clientWidth, 1);
-      height = Math.max(canvas.clientHeight, 1);
+      width = Math.max(window.innerWidth, 1);
+      height = Math.max(window.innerHeight, 1);
       renderer.setSize(width, height);
       program.uniforms.uResolution.value = [width, height];
     };
@@ -378,25 +381,24 @@ const GlowCursor = ({
       if (!destroyed) raf = requestAnimationFrame(render);
     };
 
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(canvas);
-    container.addEventListener('pointermove', updatePointer);
-    container.addEventListener('pointerenter', updatePointer);
-    container.addEventListener('pointerleave', onPointerLeave);
+    window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    window.addEventListener('pointermove', updatePointer, { passive: true });
+    document.documentElement.addEventListener('pointerleave', onPointerLeave);
     resize();
     raf = requestAnimationFrame(render);
 
     return () => {
       destroyed = true;
       cancelAnimationFrame(raf);
-      resizeObserver.disconnect();
-      container.removeEventListener('pointermove', updatePointer);
-      container.removeEventListener('pointerenter', updatePointer);
-      container.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+      window.removeEventListener('pointermove', updatePointer);
+      document.documentElement.removeEventListener('pointerleave', onPointerLeave);
       mesh.geometry.remove();
       program.remove();
     };
-  }, [maxDevicePixelRatio]);
+  }, [maxDevicePixelRatio, mounted]);
 
   return (
     <div
@@ -405,12 +407,12 @@ const GlowCursor = ({
       style={style}
       {...rest}
     >
-      <canvas
+      {mounted && createPortal(<canvas
         ref={canvasRef}
-        className="pointer-events-none fixed inset-0 z-[100] block h-full w-full select-none"
-        style={{ mixBlendMode: blendMode }}
+        className="pointer-events-none fixed inset-0 block select-none"
+        style={{ mixBlendMode: blendMode, zIndex: 2147483647, width: '100vw', height: '100dvh' }}
         aria-hidden="true"
-      />
+      />, document.body)}
       {children && <div className="relative w-full">{children}</div>}
     </div>
   );
