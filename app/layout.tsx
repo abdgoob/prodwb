@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
+
+const cybrok = localFont({ src: "../cybrok-demo/Cybrok.ttf", variable: "--font-cybrok", display: "swap" });
+const sprayPaint = localFont({ src: "../spray-paint-demo/SprayPaintDemoRegular.ttf", variable: "--font-spray", display: "swap" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,7 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${cybrok.variable} ${sprayPaint.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
         {children}

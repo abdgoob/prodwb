@@ -13,12 +13,14 @@
 // the front, and every whole number after that is one more item turned past.
 import * as React from "react";
 import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
 export interface WorksWheelItem {
   /** Project name. Shown beside the front card and in the index. */
   title: string;
+  description?: string;
   /** Cover art. Any src an <img> takes. */
   image: string;
   /** Muted artwork color used behind the selected cover. */
@@ -33,6 +35,7 @@ export interface WorksWheelProps extends Omit<
 > {
   items: WorksWheelItem[];
   showCaptions?: boolean;
+  showIndex?: boolean;
   /** Sits in the middle of the ring. @default undefined */
   label?: string;
   /** Label on the card's hover affordance. Omit to drop it. @default undefined */
@@ -109,6 +112,7 @@ export function WorksWheel({
   label = "Works '26",
   action = "View",
   showCaptions = true,
+  showIndex = true,
   className,
   style,
   ...props
@@ -358,10 +362,16 @@ export function WorksWheel({
                       unoptimized
                       sizes="(max-width: 639px) 44vw, 34vw"
                       src={item.image}
-                      alt={item.title}
+                      alt={item.description ? `${item.title}: ${item.description}` : item.title}
                       draggable={false}
                       className="size-full object-cover"
                     />
+                    {showCaptions && item.description && (
+                      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/85 to-transparent px-4 pb-4 pt-12 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+                        <span className="block text-lg text-[#ef3948] [font-family:var(--font-cybrok)] [text-shadow:0_0_12px_rgba(225,20,40,0.5)]">{item.title}</span>
+                        <span className="mt-1 block text-sm text-[#f0c4c8] [font-family:var(--font-cybrok)]">{item.description}</span>
+                      </span>
+                    )}
                     {action && item.href ? (
                       <span className="bg-background/80 text-foreground pointer-events-none absolute right-3 bottom-3 flex translate-y-1 items-center gap-1 rounded-full px-2.5 py-1 text-[0.7rem] opacity-0 backdrop-blur-sm transition group-hover:translate-y-0 group-hover:opacity-100">
                         <svg
@@ -397,17 +407,38 @@ export function WorksWheel({
         className="pointer-events-none absolute inset-0 grid place-items-center tracking-tight"
         style={{ fontSize: metrics.title }}
       >
-        {label}
+        <span className="relative text-[clamp(2rem,5vw,6rem)] leading-none text-[#df2433] [font-family:var(--font-cybrok)] [text-shadow:0_2px_2px_#000,0_0_22px_rgba(210,20,40,0.5)]">
+          <span aria-hidden="true" className="absolute inset-0 translate-y-1 -rotate-3 text-[#6f0a16] opacity-60 [font-family:var(--font-spray)]">{label}</span>
+          <span className="relative">{label}</span>
+        </span>
       </div>
       {showCaptions && <div
         ref={titleRef}
-        className="pointer-events-none absolute top-1/2 left-[8%] -translate-y-1/2 tracking-tight opacity-0"
-        style={{ fontSize: metrics.title }}
+        className="pointer-events-none absolute left-[6%] bottom-[17%] w-[72%] opacity-0 sm:bottom-auto sm:top-1/2 sm:left-[5%] sm:w-[22%] sm:-translate-y-1/2"
       >
-        {items[active]?.title}
+        <motion.div
+          initial={false}
+          animate={{ x: active % 2 === 0 ? 0 : stage.w * (stage.w < 640 ? 0.16 : 0.68) }}
+          transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 65, damping: 22, mass: 1 }}
+          className="grid"
+        >
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={active}
+              initial={{ opacity: 0, y: reduced ? 0 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: reduced ? 0 : -12 }}
+              transition={{ duration: reduced ? 0 : 0.4, ease: "easeInOut" }}
+              className="col-start-1 row-start-1"
+            >
+        <p className="text-[clamp(1.2rem,2.8vw,3rem)] leading-tight text-[#eb3543] [font-family:var(--font-cybrok)] [text-shadow:0_2px_3px_#000,0_0_18px_rgba(220,20,40,0.45)]">{items[active]?.title}</p>
+        <p className="mt-3 text-[clamp(1rem,1.7vw,1.6rem)] leading-relaxed text-[#e9b5b9] [font-family:var(--font-cybrok)] [text-shadow:0_2px_4px_#000,0_0_12px_rgba(180,20,35,0.3)]">{items[active]?.description}</p>
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
       </div>}
 
-      {showCaptions && <ol
+      {showCaptions && showIndex && <ol
         className="absolute inset-x-5 bottom-14 flex gap-4 overflow-x-auto text-[#f4f1ea]/55 sm:inset-x-auto sm:bottom-auto sm:top-[7.5%] sm:right-[2.5%] sm:block sm:text-right sm:leading-[1.75]"
         style={{ fontSize: metrics.index }}
       >
