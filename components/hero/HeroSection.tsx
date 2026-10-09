@@ -19,30 +19,29 @@ const reveal = (delay: number, revealed: boolean) => ({
 });
 
 function SocialMarks() {
+  const linkClass = "inline-flex size-11 items-center justify-center rounded-full transition-colors hover:text-[#ff4555] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4555]";
   return (
-    <div
-      aria-hidden="true"
-      className="flex items-center gap-5 text-[#cd404c]"
-    >
-      <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-        <circle cx="12" cy="12" r="4" />
-        <circle cx="17.5" cy="6.7" r="0.8" fill="currentColor" stroke="none" />
-      </svg>
-      <svg viewBox="0 0 24 24" className="h-[18px] w-[22px]" fill="none">
-        <rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" />
-        <path d="m10 9 5 3-5 3V9Z" fill="#08070c" />
-      </svg>
-      <svg viewBox="0 0 28 20" className="h-[18px] w-[25px]" fill="currentColor">
-        <path d="M1 13.1h1.2V17H1v-3.9Zm2.2-2h1.3V17H3.2v-5.9Zm2.3-2.4h1.3V17H5.5V8.7Zm2.3-1.8h1.3V17H7.8V6.9Zm2.3-1.2h1.3V17h-1.3V5.7Zm2.4-.7h1.3v12h-1.3V5Zm2.3 1.2c.6-.3 1.4-.5 2.1-.5 2.4 0 4.4 1.8 4.7 4.1.3-.1.7-.2 1.1-.2 2 0 3.6 1.6 3.6 3.6S24.7 17 22.7 17h-7.9V6.2Z" />
-      </svg>
-      <svg viewBox="0 0 24 24" className="size-[19px]" fill="currentColor">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M7.1 9.2c3.5-1 7.8-.7 10.8.9" fill="none" stroke="#08070c" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M7.7 12.2c3-.8 6.8-.5 9.4.8" fill="none" stroke="#08070c" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M8.2 15c2.5-.6 5.6-.4 7.8.7" fill="none" stroke="#08070c" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    </div>
+    <nav aria-label="Social links" className="flex items-center gap-1 text-[#cd404c]">
+      <a href="https://youtu.be/VxvxYpcQj30?si=ryHlvhjowCspRjp8" target="_blank" rel="noopener noreferrer" aria-label="YouTube (opens in a new tab)" className={linkClass}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[22px]" fill="none">
+          <rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" />
+          <path d="m10 9 5 3-5 3V9Z" fill="#08070c" />
+        </svg>
+      </a>
+      <a href="https://www.instagram.com/prodwb_?cplk=NnZtNDRrYmZseGpv" target="_blank" rel="noopener noreferrer" aria-label="Instagram (opens in a new tab)" className={linkClass}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+          <circle cx="12" cy="12" r="4" />
+          <circle cx="17.5" cy="6.7" r="0.8" fill="currentColor" stroke="none" />
+        </svg>
+      </a>
+      <a href="https://www.fiverr.com/s/yeej52e" target="_blank" rel="noopener noreferrer" aria-label="Fiverr (opens in a new tab)" className={linkClass}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[22px]" fill="currentColor">
+          <path d="M8 9V7.5C8 4.5 9.8 3 12.5 3H15v3h-1.8C11.7 6 11 6.5 11 8v1h8v10h2v3h-7v-3h2v-7h-5v7h2v3H6v-3h2v-7H5V9h3Z" />
+          <circle cx="17.5" cy="4.5" r="2" />
+        </svg>
+      </a>
+    </nav>
   );
 }
 
