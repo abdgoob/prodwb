@@ -8,9 +8,9 @@ import grainStyles from "./GrainSplash.module.css";
 
 const HERO_IMAGE = "/hero-artist.jpg";
 
-const reveal = (delay: number) => ({
+const reveal = (delay: number, revealed: boolean) => ({
   initial: { opacity: 0, y: 18 },
-  animate: { opacity: 1, y: 0 },
+  animate: { opacity: revealed ? 1 : 0, y: revealed ? 0 : 18 },
   transition: {
     duration: 0.8,
     delay,
@@ -46,7 +46,7 @@ function SocialMarks() {
   );
 }
 
-export default function HeroSection() {
+export default function HeroSection({ revealed = true }: { revealed?: boolean }) {
   return (
     <MotionConfig reducedMotion="user">
       <section
@@ -61,7 +61,7 @@ export default function HeroSection() {
         />
 
         <motion.header
-          {...reveal(0.08)}
+          {...reveal(0.08, revealed)}
           className="absolute inset-x-0 top-0 z-[60] flex h-20 items-center justify-between px-5 sm:h-24 sm:px-8 lg:px-12 xl:px-20"
         >
           <span className="text-[0.68rem] font-semibold text-[#ed343c] uppercase tracking-[0.38em] sm:text-xs">
@@ -83,7 +83,7 @@ export default function HeroSection() {
         <div data-parallax-layer="3" className="pointer-events-none absolute inset-0 z-[48]">
         <motion.h1
           id="hero-title"
-          {...reveal(0.18)}
+          {...reveal(0.18, revealed)}
           className="pointer-events-none absolute left-1/2 top-[55svh] w-max max-w-[94vw] -translate-x-1/2 origin-bottom [scale:1_0.8] whitespace-nowrap bg-[linear-gradient(180deg,#d43139_0%,#be1522_28%,#8b0b18_52%,#450810_74%,#16070b_90%,#08070c_100%)] bg-clip-text text-center text-[19vw] font-extrabold leading-[0.85] tracking-[-0.065em] text-transparent drop-shadow-[0_0_12px_rgba(200,20,38,0.22)] sm:top-auto sm:bottom-[0.5svh] sm:text-[20vw]"
         >
           PRODWB
@@ -141,7 +141,7 @@ export default function HeroSection() {
         />
 
         <motion.div
-          {...reveal(0.58)}
+          {...reveal(0.58, revealed)}
           aria-hidden="true"
           className="pointer-events-none absolute bottom-7 left-5 z-20 hidden text-[#f4f1ea]/55 sm:block sm:bottom-10 sm:left-8 lg:bottom-14 lg:left-20"
         >
@@ -152,7 +152,7 @@ export default function HeroSection() {
         </motion.div>
 
         <motion.div
-          {...reveal(0.62)}
+          {...reveal(0.62, revealed)}
           aria-hidden="true"
           className="pointer-events-none absolute right-8 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-center text-[0.55rem] tracking-[0.24em] text-[#cd404c]/80 md:flex lg:right-14 xl:right-20"
         >
@@ -164,7 +164,7 @@ export default function HeroSection() {
         </motion.div>
 
         <motion.div
-          {...reveal(0.66)}
+          {...reveal(0.66, revealed)}
           className="absolute left-1/2 top-14 z-[60] flex h-12 -translate-x-1/2 items-center sm:top-0 sm:h-24"
         >
           <SocialMarks />

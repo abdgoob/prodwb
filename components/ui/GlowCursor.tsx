@@ -383,7 +383,7 @@ const GlowCursor = ({
 
     window.addEventListener('resize', resize);
     window.visualViewport?.addEventListener('resize', resize);
-    window.addEventListener('pointermove', updatePointer, { passive: true });
+    window.addEventListener('pointermove', updatePointer, { passive: true, capture: true });
     document.documentElement.addEventListener('pointerleave', onPointerLeave);
     resize();
     raf = requestAnimationFrame(render);
@@ -393,7 +393,7 @@ const GlowCursor = ({
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
       window.visualViewport?.removeEventListener('resize', resize);
-      window.removeEventListener('pointermove', updatePointer);
+      window.removeEventListener('pointermove', updatePointer, true);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
       mesh.geometry.remove();
       program.remove();
