@@ -67,15 +67,7 @@ export default function HeroSection({ revealed = true }: { revealed?: boolean })
             PRODWB
           </span>
 
-          <nav
-            aria-label="Portfolio preview"
-            className="hidden items-center gap-5 text-[0.62rem] font-medium uppercase tracking-[0.34em] text-[#f4f1ea]/58 sm:absolute sm:left-1/2 sm:top-20 sm:flex sm:-translate-x-1/2 md:gap-9 lg:gap-14 xl:static xl:translate-x-0"
-          >
-            <span>About</span>
-            <span>Beats</span>
-            <span>Projects</span>
-            <span>Contact</span>
-          </nav>
+
 
         </motion.header>
 
@@ -150,17 +142,7 @@ export default function HeroSection({ revealed = true }: { revealed?: boolean })
           </div>
         </motion.div>
 
-        <motion.div
-          {...reveal(0.62, revealed)}
-          aria-hidden="true"
-          className="pointer-events-none absolute right-8 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-center text-[0.55rem] tracking-[0.24em] text-[#cd404c]/80 md:flex lg:right-14 xl:right-20"
-        >
-          <span>01</span>
-          <span className="my-4 h-px w-4 bg-[#e63742]/85" />
-          <span className="h-11 w-px bg-[#e63742]/40" />
-          <span className="my-4 h-px w-4 bg-[#e63742]/65" />
-          <span>03</span>
-        </motion.div>
+
 
         <motion.div
           {...reveal(0.66, revealed)}

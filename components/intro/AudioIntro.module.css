@@ -28,12 +28,14 @@
 .albumStage {
   grid-area: 1 / 1;
   z-index: 1;
-  opacity: 0;
+  visibility: hidden;
+  transform-origin: 50% 50%;
   transition: opacity 800ms ease, scale 800ms ease;
 }
 .overlay[data-artwork-ready="true"] .albumStage {
+  visibility: visible;
   opacity: 1;
-  animation: arrive 1700ms cubic-bezier(.16,1,.3,1) 200ms backwards;
+  animation: arrive 2400ms cubic-bezier(.16,1,.3,1) 150ms backwards;
 }
 .album {
   --size: min(340px, 64vw, 56svh);
@@ -46,7 +48,10 @@
   background: transparent;
   cursor: pointer;
   perspective: 1100px;
-  transform: perspective(1100px) translate3d(var(--magnet-x, 0px), var(--magnet-y, 0px), 0) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transform-style: preserve-3d;
+  /* Added rotateY(0deg) so it has a baseline to transition smoothly from */
+  transform: perspective(1100px) translate3d(var(--magnet-x, 0px), var(--magnet-y, 0px), 0) rotateX(var(--tilt-x, 0deg)) rotateY(calc(var(--tilt-y, 0deg) + var(--hover-rot-y, 0deg)));
+  transition: transform 600ms cubic-bezier(.22,1,.36,1);
   will-change: transform;
   isolation: isolate;
 }
@@ -79,19 +84,23 @@
 }
 .discLabel { position: absolute; top: 43%; left: 36%; font-size: 12px; letter-spacing: .12em; color: #ffd0d5; }
 .discPrompt { position: absolute; right: 5%; top: 58%; font-size: clamp(9px, 1.1vw, 12px); color: #ffe1e5; opacity: 0; transition: opacity 450ms ease 150ms; }
+
 @media (hover: hover) and (pointer: fine) {
+/* Rotates the entire album around the Y axis on hover */
+.album:hover { --hover-rot-y: 25deg; }
 .album:hover .sleeve { transform: translateX(-21%) rotateY(-7deg) rotateZ(-1deg); }
 .album:hover .disc { transform: translateX(21.875%); }
 .album:hover .discSurface { rotate: 24deg; }
 .album:hover .discPrompt { opacity: 1; }
 }
+
 .touchPrompt { display: none; }
 .waveform {
   position: relative;
   z-index: 1;
   grid-area: 1 / 1;
-  width: min(680px, 84vw);
-  height: clamp(280px, 58svh, 540px);
+  width: min(380px, 72vw);
+  height: clamp(90px, 16svh, 150px);
   opacity: 0;
   pointer-events: none;
   mask-image: linear-gradient(to right, transparent 0%, #0003 8%, #0009 18%, black 30%, black 70%, #0009 82%, #0003 92%, transparent 100%);
@@ -99,7 +108,6 @@
 }
 .overlay:is([data-phase="entering"], [data-phase="playing"]) .waveform { opacity: 1; }
 .overlay:is([data-phase="entering"], [data-phase="playing"], [data-phase="revealing"]) .albumStage { animation: none; opacity: 0; scale: .96; pointer-events: none; }
-/* Keep the separation visible before the artwork dissolves into the waveform. */
 .overlay[data-phase="entering"] .albumStage {
   scale: .86;
   transition: opacity 800ms ease 650ms, scale 1100ms cubic-bezier(.22,1,.36,1);
@@ -123,30 +131,25 @@
 .skip { position: absolute; bottom: 24px; right: 20px; padding: 14px 20px; border: 0; background: transparent; color: #ab9597; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
 .album:focus-visible, .skip:focus-visible { outline: 2px solid #ff3444; outline-offset: 8px; }
 @keyframes arrive {
-  from { opacity: 0; transform: perspective(1100px) translateY(100px) rotateX(12deg) scale(.9); }
-  35% { opacity: .35; }
-  to { opacity: 1; transform: perspective(1100px) translateY(0) rotateX(0deg) scale(1); }
+  from {
+    transform: perspective(1100px) translate3d(-28vw, calc(50svh + 100%), -160px) rotateZ(-135deg) rotateX(-25deg);
+  }
+  to {
+    transform: perspective(1100px) translate3d(0, 0, 0) rotateZ(0deg) rotateX(0deg);
+  }
 }
-@keyframes arriveQuietly { from { opacity: 0; } to { opacity: 1; } }
 @media (hover: none) {
   .desktopPrompt { display: none; }
   .touchPrompt { display: inline; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .overlay[data-artwork-ready="true"] .albumStage { animation: arriveQuietly 250ms ease backwards; }
+  .overlay[data-artwork-ready="true"] .albumStage { animation: none; }
   .overlay:is([data-phase="entering"], [data-phase="playing"], [data-phase="revealing"]) .albumStage { animation: none; }
   .leaving .waveform { transition-duration: 180ms; }
   .overlay, .albumStage, .waveform, .sleeve, .disc, .discSurface, .discPrompt { transition-duration: 180ms; transition-delay: 0ms; }
   @media (hover: hover) and (pointer: fine) {
+    .album:hover { --hover-rot-y: 0deg; }
     .album:hover .sleeve { transform: translateX(-21%); }
   }
   .album:hover .discSurface { rotate: 0deg; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .overlay[data-phase="entering"] .albumStage { scale: 1; transition: opacity 180ms ease; }
-  .overlay[data-phase="entering"] .waveform { transition-delay: 0ms; }
-  .overlay:is([data-phase="entering"], [data-phase="playing"]) .sleeve,
-  .overlay:is([data-phase="entering"], [data-phase="playing"]) .disc { transform: none; transition-duration: 180ms; }
-  .overlay:is([data-phase="entering"], [data-phase="playing"]) .discSurface { rotate: 0deg; }
 }

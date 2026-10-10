@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./AudioIntro.module.css";
 import AlbumMaterial from "./AlbumMaterial";
 
-const SESSION_KEY = "prodwb-intro-sleeve-v2";
+const SESSION_KEY = "prodwb-intro-sleeve-v3";
 
 export default function AudioIntro({ onReveal, onComplete }: { onReveal: () => void; onComplete: () => void }) {
   const [phase, setPhase] = useState<"preparing" | "cover-ready" | "entering" | "playing" | "revealing" | "complete">("preparing");
@@ -94,7 +94,7 @@ export default function AudioIntro({ onReveal, onComplete }: { onReveal: () => v
     };
     finishRef.current = () => finish();
     try {
-      if (sessionStorage.getItem(SESSION_KEY)) {
+      if (process.env.NODE_ENV === "production" && sessionStorage.getItem(SESSION_KEY)) {
         finish(true);
         return () => { disposed = true; cancelAnimationFrame(focusFrame); };
       }
@@ -140,7 +140,7 @@ export default function AudioIntro({ onReveal, onComplete }: { onReveal: () => v
         }
         const center = height / 2;
         pen.beginPath();
-        for (let x = 0; x < width; x += 4) {
+        for (let x = 0; x < width; x += 3) {
           // Each bar keeps its horizontal position and its recording-derived shape.
           const time = x / width * (buffer?.duration ?? 0);
           const position = time * 1000;
@@ -160,23 +160,23 @@ export default function AudioIntro({ onReveal, onComplete }: { onReveal: () => v
           const activity = Math.pow(band, 1.6);
           const level = reduced.matches ? shape * 0.6
             : impact * (0.18 * shape + 0.82 * activity) * (0.38 + 0.62 * shape);
-          const target = finished ? 0 : Math.tanh(level * 4.5) * height * 0.47 * edge;
+          const target = finished ? 0 : Math.tanh(level * 1.8) * height * 0.7 * edge;
           const bar = x / 4;
           const previous = heights[bar] ?? 0;
           // Fast attack preserves transients; slower release gives the spikes a fluid tail.
-          const blend = 1 - Math.exp(-delta / (finished ? 150 : target > previous ? 12 : 85));
+          const blend = 1 - Math.exp(-delta / (finished ? 150 : target > previous ? 4 : 50));
           heights[bar] = reduced.matches ? target : (heights[bar] ?? target) + (target - (heights[bar] ?? target)) * blend;
           const size = heights[bar];
           if (size < 0.3) continue;
           pen.moveTo(x, center - size);
           pen.lineTo(x, center + size);
         }
-        pen.lineWidth = 1;
+        pen.lineWidth = 0.55;
         pen.strokeStyle = "#ff1826";
         pen.shadowColor = "#ff0018";
-        pen.shadowBlur = 12 + Math.min(1, energy * 3) * 10;
+        pen.shadowBlur = 4 + Math.min(1, energy * 3) * 2;
         pen.stroke();
-        pen.shadowBlur = 5;
+        pen.shadowBlur = 0;
         pen.stroke();
         pen.shadowBlur = 0;
       }
