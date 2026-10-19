@@ -50,7 +50,7 @@ export interface WorksWheelProps extends Omit<
    decides whether they land inside the frame or run off it. */
 const CARD_H = 0.38; // front card height, of the stage
 const CARD_MAX_W = 0.34; // ... but never wider than this much of the stage
-const CARD_RATIO = 1.45; // card width / height
+const CARD_RATIO = 1; // square album sleeves
 const STEP = 40; // degrees between cards on the drum
 const DRUM = 2.22; // drum radius, in card heights - and everything below likewise
 const LENS = 2.7; // perspective distance
@@ -356,22 +356,29 @@ export function WorksWheel({
                     marginTop: -metrics.cardH / 2,
                   }}
                 >
-                  <span className="bg-[#141119] shadow-foreground/12 relative block size-full overflow-hidden rounded-lg shadow-[0_18px_40px_-18px_var(--tw-shadow-color)]">
-                    <Image
-                      fill
-                      unoptimized
-                      sizes="(max-width: 639px) 44vw, 34vw"
-                      src={item.image}
-                      alt={item.description ? `${item.title}: ${item.description}` : item.title}
-                      draggable={false}
-                      className="size-full object-cover"
-                    />
-                    {showCaptions && item.description && (
-                      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/85 to-transparent px-4 pb-4 pt-12 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
-                        <span className="block text-lg text-[#ef3948] [font-family:var(--font-cybrok)] [text-shadow:0_0_12px_rgba(225,20,40,0.5)]">{item.title}</span>
-                        <span className="mt-1 block text-sm text-[#f0c4c8] [font-family:var(--font-cybrok)]">{item.description}</span>
-                      </span>
-                    )}
+                  <span className="relative block size-full overflow-visible [transform-style:preserve-3d]">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-[3%] z-0 rounded-full bg-[repeating-radial-gradient(circle,rgba(255,255,255,0.06)_0_1px,transparent_1px_4px),conic-gradient(from_25deg,#14070a,#a8172d_12%,#350b14_25%,#10080a_40%,#dc4053_50%,#4b0d19_61%,#10080a_76%,#8f1b30_90%,#14070a)] shadow-[3px_3px_0_#48101b,0_14px_30px_rgba(0,0,0,0.75)] transition-transform duration-700 ease-[cubic-bezier(.22,1,.36,1)] [mask-image:radial-gradient(circle,transparent_0_5%,#000_5.8%)] group-hover:translate-x-[42%] group-hover:rotate-[28deg] group-focus-within:translate-x-[42%] group-focus-within:rotate-[28deg] motion-reduce:transition-none"
+                    >
+                      <span className="absolute inset-[30%] rounded-full border border-[#ff8e9c]/25 bg-[#18090d] shadow-[inset_0_0_12px_rgba(255,35,68,0.18)]" />
+                    </span>
+                    <span className="bg-[#141119] shadow-foreground/12 relative z-10 block size-full overflow-hidden rounded-lg border border-white/10 shadow-[3px_2px_0_#3e1019,0_18px_40px_-18px_var(--tw-shadow-color)] transition-transform duration-700 ease-[cubic-bezier(.22,1,.36,1)] group-hover:-translate-x-[10%] group-hover:-rotate-2 group-focus-within:-translate-x-[10%] group-focus-within:-rotate-2 motion-reduce:transition-none">
+                      <Image
+                        fill
+                        unoptimized
+                        sizes="(max-width: 639px) 44vw, 34vw"
+                        src={item.image}
+                        alt={item.description ?? "Album artwork"}
+                        draggable={false}
+                        className="size-full object-cover"
+                      />
+                      {showCaptions && item.description && (
+                        <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/85 to-transparent px-4 pb-4 pt-12 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+                          <span className="block text-sm text-[#f0c4c8] [font-family:var(--font-beats,var(--font-cybrok))]">{item.description}</span>
+                        </span>
+                      )}
+                    </span>
                     {action && item.href ? (
                       <span className="bg-background/80 text-foreground pointer-events-none absolute right-3 bottom-3 flex translate-y-1 items-center gap-1 rounded-full px-2.5 py-1 text-[0.7rem] opacity-0 backdrop-blur-sm transition group-hover:translate-y-0 group-hover:opacity-100">
                         <svg
@@ -407,8 +414,8 @@ export function WorksWheel({
         className="pointer-events-none absolute inset-0 grid place-items-center tracking-tight"
         style={{ fontSize: metrics.title }}
       >
-        <span className="relative text-[clamp(2rem,5vw,6rem)] leading-none text-[#df2433] [font-family:var(--font-cybrok)] [text-shadow:0_2px_2px_#000,0_0_22px_rgba(210,20,40,0.5)]">
-          <span aria-hidden="true" className="absolute inset-0 translate-y-1 -rotate-3 text-[#6f0a16] opacity-60 [font-family:var(--font-spray)]">{label}</span>
+        <span className="relative text-[clamp(2rem,5vw,6rem)] leading-none text-[#df2433] [font-family:var(--font-beats,var(--font-cybrok))] [text-shadow:0_2px_2px_#000,0_0_22px_rgba(210,20,40,0.5)]">
+          <span aria-hidden="true" className="absolute inset-0 translate-y-1 -rotate-3 text-[#6f0a16] opacity-60 [font-family:var(--font-beats,var(--font-spray))]">{label}</span>
           <span className="relative">{label}</span>
         </span>
       </div>
@@ -416,12 +423,7 @@ export function WorksWheel({
         ref={titleRef}
         className="pointer-events-none absolute left-[6%] bottom-[17%] w-[72%] opacity-0 sm:bottom-auto sm:top-1/2 sm:left-[5%] sm:w-[22%] sm:-translate-y-1/2"
       >
-        <motion.div
-          initial={false}
-          animate={{ x: active % 2 === 0 ? 0 : stage.w * (stage.w < 640 ? 0.16 : 0.68) }}
-          transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 65, damping: 22, mass: 1 }}
-          className="grid"
-        >
+        <div className="grid">
           <AnimatePresence initial={false}>
             <motion.div
               key={active}
@@ -431,11 +433,10 @@ export function WorksWheel({
               transition={{ duration: reduced ? 0 : 0.4, ease: "easeInOut" }}
               className="col-start-1 row-start-1"
             >
-        <p className="text-[clamp(1.2rem,2.8vw,3rem)] leading-tight text-[#eb3543] [font-family:var(--font-cybrok)] [text-shadow:0_2px_3px_#000,0_0_18px_rgba(220,20,40,0.45)]">{items[active]?.title}</p>
-        <p className="mt-3 text-[clamp(1rem,1.7vw,1.6rem)] leading-relaxed text-[#e9b5b9] [font-family:var(--font-cybrok)] [text-shadow:0_2px_4px_#000,0_0_12px_rgba(180,20,35,0.3)]">{items[active]?.description}</p>
+        <p className="text-[clamp(1rem,1.7vw,1.6rem)] leading-relaxed text-[#e9b5b9] [font-family:var(--font-beats,var(--font-cybrok))] [text-shadow:0_2px_4px_#000,0_0_12px_rgba(180,20,35,0.3)]">{items[active]?.description}</p>
             </motion.div>
           </AnimatePresence>
-        </motion.div>
+        </div>
       </div>}
 
       {showCaptions && showIndex && <ol

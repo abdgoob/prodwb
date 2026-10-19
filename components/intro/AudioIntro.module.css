@@ -90,7 +90,7 @@
 .album:hover { --hover-rot-y: 25deg; }
 .album:hover .sleeve { transform: translateX(-21%) rotateY(-7deg) rotateZ(-1deg); }
 .album:hover .disc { transform: translateX(21.875%); }
-.album:hover .discSurface { rotate: 24deg; }
+.album:hover .discSurface { rotate: 20deg; }
 .album:hover .discPrompt { opacity: 1; }
 }
 
@@ -109,22 +109,30 @@
 .overlay:is([data-phase="entering"], [data-phase="playing"]) .waveform { opacity: 1; }
 .overlay:is([data-phase="entering"], [data-phase="playing"], [data-phase="revealing"]) .albumStage { animation: none; opacity: 0; scale: .96; pointer-events: none; }
 .overlay[data-phase="entering"] .albumStage {
-  scale: .86;
-  transition: opacity 800ms ease 650ms, scale 1100ms cubic-bezier(.22,1,.36,1);
+  opacity: 1;
+  scale: 1;
+  transition: none;
 }
 .overlay:is([data-phase="entering"], [data-phase="playing"]) .sleeve {
-  transform: translateX(-55%) rotateY(-16deg) rotateZ(-4deg);
-  transition-duration: 1100ms;
+  transform: translateX(calc(-50vw - 55%)) rotateY(-18deg) rotateZ(-5deg);
+  transition-duration: 1450ms;
+  transition-timing-function: cubic-bezier(.65,0,.35,1);
 }
 .overlay:is([data-phase="entering"], [data-phase="playing"]) .disc {
-  transform: translateX(58%) rotateY(12deg);
-  transition-duration: 1100ms;
+  transform: translateX(calc(50vw + 55%)) rotateY(18deg);
+  transition-duration: 1450ms;
+  transition-timing-function: cubic-bezier(.65,0,.35,1);
 }
-.overlay:is([data-phase="entering"], [data-phase="playing"]) .discSurface { rotate: 95deg; transition-duration: 1400ms; }
+.overlay:is([data-phase="entering"], [data-phase="playing"]) .discSurface { rotate: 150deg; transition-duration: 1450ms; }
 .overlay:is([data-phase="entering"], [data-phase="playing"]) .discPrompt { opacity: 0; transition-delay: 0ms; }
-.overlay[data-phase="entering"] .waveform { transition-delay: 650ms; }
+.overlay[data-phase="entering"] .waveform { transition-delay: 350ms; }
 @media (max-width: 600px) {
-  .overlay[data-phase="entering"] .albumStage { scale: .7; }
+  .overlay:is([data-phase="entering"], [data-phase="playing"]) .sleeve {
+    transform: translateX(calc(-50vw - 48%)) rotateY(-14deg) rotateZ(-4deg);
+  }
+  .overlay:is([data-phase="entering"], [data-phase="playing"]) .disc {
+    transform: translateX(calc(50vw + 48%)) rotateY(14deg);
+  }
 }
 .leaving .waveform { opacity: 0; transition-duration: 700ms; }
 .status { position: absolute; bottom: 20%; color: #ac7378; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; }
