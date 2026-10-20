@@ -5,6 +5,7 @@ import AudioIntro from "@/components/intro/AudioIntro";
 import HeroSection from "@/components/hero/HeroSection";
 import GlowCursor from "@/components/ui/GlowCursor";
 import WorksSection from "@/components/works/WorksSection";
+import TestimonialsSection from "@/components/testimonials/TestimonialsSection";
 import { ParallaxComponent } from "@/components/ui/parallax-scrolling";
 
 export default function Home() {
@@ -38,6 +39,7 @@ export default function Home() {
       <ParallaxComponent>
         <HeroSection revealed={revealed} />
         <WorksSection />
+        <TestimonialsSection />
       </ParallaxComponent>
       </div>
       </GlowCursor>

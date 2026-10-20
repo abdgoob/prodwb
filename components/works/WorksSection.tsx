@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import localFont from "next/font/local";
-import { MotionConfig, motion, useScroll, useTransform, useReducedMotion, useMotionValue } from "framer-motion";
+import { MotionConfig, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { MatrixRain } from "@/components/ui/matrix-rain";
 import { WorksWheel, type WorksWheelItem } from "@/components/ui/works-wheel";
 import { seekPage } from "@/lib/page-scroll";
@@ -24,13 +24,6 @@ export default function WorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const horizontalRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
-  const viewportWidth = useMotionValue(1);
-  useEffect(() => {
-    const measure = () => viewportWidth.set(document.documentElement.clientWidth);
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [viewportWidth]);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "start start"] });
   const { scrollYProgress: horizontalProgress } = useScroll({
     target: horizontalRef,
@@ -38,10 +31,7 @@ export default function WorksSection() {
   });
   const rainOpacity = useTransform(scrollYProgress, [0, 0.2, 0.85, 1], [0, 0.06, 0.38, 0.42]);
   const wheelDistance = works.length * SCROLL_PER_BEAT;
-  // One continuous position controls both phases, independent of pointer location.
-  const travel = useTransform(() => horizontalProgress.get() * (wheelDistance + viewportWidth.get() * 1.7));
-  const wheelPosition = useTransform(() => Math.min(works.length, Math.max(0, travel.get() / SCROLL_PER_BEAT)));
-  const trackX = useTransform(() => -Math.min(viewportWidth.get(), Math.max(0, (travel.get() - wheelDistance) / 1.7)));
+  const wheelPosition = useTransform(() => Math.min(works.length, Math.max(0, horizontalProgress.get() * works.length)));
   const seekBeat = useCallback((position: number) => {
     const runway = horizontalRef.current;
     if (!runway) return;
@@ -56,20 +46,19 @@ export default function WorksSection() {
           ref={horizontalRef}
           data-works-runway
           className="relative"
-          style={{ height: `calc(100svh + ${wheelDistance}px + 170vw)` }}
+          style={{ height: `calc(100svh + ${wheelDistance}px)` }}
         >
           <div className="sticky top-0 h-svh overflow-hidden">
             <motion.div
               data-works-track
-              className="flex h-full w-[200%]"
-              style={{ x: trackX }}
+              className="relative h-full w-full"
             >
               <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="relative h-full w-1/2 shrink-0 overflow-hidden"
+          className="relative h-full w-full overflow-hidden"
         >
           <motion.div
             aria-hidden="true"
@@ -84,18 +73,6 @@ export default function WorksSection() {
             <span className="hidden sm:inline">Scroll or drag to explore · ↑ ↓ to navigate</span>
           </p>
               </motion.div>
-
-              <section
-                id="testimonials"
-                aria-labelledby="testimonials-title"
-                className="relative grid h-full w-1/2 shrink-0 place-items-center overflow-hidden bg-[#08070c] px-6 text-[#f4f1ea]"
-              >
-                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_35%_50%,rgba(174,18,38,0.16),transparent_42%),linear-gradient(90deg,#08070c,#10070b)]" />
-                <div className="relative text-center">
-                  <p className="mb-4 text-[0.62rem] uppercase tracking-[0.42em] text-[#cd404c]">Coming next</p>
-                  <h2 id="testimonials-title" className="text-[clamp(2.5rem,8vw,8rem)] leading-none text-[#f0c4c8]">Testimonials</h2>
-                </div>
-              </section>
             </motion.div>
           </div>
         </div>

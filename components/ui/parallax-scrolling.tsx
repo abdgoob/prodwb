@@ -45,9 +45,12 @@ export function ParallaxComponent({ children }: { children: ReactNode }) {
         lerp: 0.1,
         syncTouch: false,
         // Only standalone wheels consume gestures; the page-driven wheel uses Lenis.
-        prevent: (node) => node.hasAttribute("data-works-wheel-stage") &&
-          node.getAttribute("data-scroll-driven") !== "true" &&
-          node.getBoundingClientRect().top <= 1,
+        prevent: (node) => {
+          if (node instanceof Element && node.closest(".dcc-root")) return true;
+          return node.hasAttribute("data-works-wheel-stage") &&
+            node.getAttribute("data-scroll-driven") !== "true" &&
+            node.getBoundingClientRect().top <= 1;
+        },
       });
       const tick = (time: number) => lenis.raf(time * 1000);
       const seek = (event: Event) => {
