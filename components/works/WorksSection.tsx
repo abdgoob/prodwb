@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import localFont from "next/font/local";
-import { MotionConfig, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { MotionConfig, motion, useScroll, useTransform, useReducedMotion, useMotionValue } from "framer-motion";
 import { MatrixRain } from "@/components/ui/matrix-rain";
 import { WorksWheel, type WorksWheelItem } from "@/components/ui/works-wheel";
+import { seekPage } from "@/lib/page-scroll";
 
 const beatsFont = localFont({ src: "../../Aresink.otf", variable: "--font-beats", display: "swap" });
+const SCROLL_PER_BEAT = 900;
 
 // Temporary artwork descriptions; replace with track details when available.
 const works: WorksWheelItem[] = [
@@ -20,33 +22,83 @@ const works: WorksWheelItem[] = [
 
 export default function WorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const horizontalRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
+  const viewportWidth = useMotionValue(1);
+  useEffect(() => {
+    const measure = () => viewportWidth.set(document.documentElement.clientWidth);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [viewportWidth]);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "start start"] });
+  const { scrollYProgress: horizontalProgress } = useScroll({
+    target: horizontalRef,
+    offset: ["start start", "end end"],
+  });
   const rainOpacity = useTransform(scrollYProgress, [0, 0.2, 0.85, 1], [0, 0.06, 0.38, 0.42]);
+  const wheelDistance = works.length * SCROLL_PER_BEAT;
+  // One continuous position controls both phases, independent of pointer location.
+  const travel = useTransform(() => horizontalProgress.get() * (wheelDistance + viewportWidth.get() * 1.7));
+  const wheelPosition = useTransform(() => Math.min(works.length, Math.max(0, travel.get() / SCROLL_PER_BEAT)));
+  const trackX = useTransform(() => -Math.min(viewportWidth.get(), Math.max(0, (travel.get() - wheelDistance) / 1.7)));
+  const seekBeat = useCallback((position: number) => {
+    const runway = horizontalRef.current;
+    if (!runway) return;
+    const start = window.scrollY + runway.getBoundingClientRect().top;
+    seekPage(start + position * SCROLL_PER_BEAT);
+  }, []);
   return (
     <MotionConfig reducedMotion="user">
       <div ref={sectionRef} id="works" className={`${beatsFont.variable} ${beatsFont.className} relative isolate z-10 bg-[#08070c] pt-[clamp(6rem,18svh,12rem)] sm:pt-[clamp(10rem,28svh,22rem)]`}>
-        <motion.div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden"
-          style={{ opacity: reducedMotion ? 0.28 : rainOpacity, maskImage: "linear-gradient(to bottom, transparent 0%, black 24%, black 88%, transparent 100%)" }}
-        >
-          <MatrixRain fixedColor="#cd404c" fontSize={16} speed={65} transparent />
-        </motion.div>
         <h2 className="sr-only">Selected works</h2>
-        <motion.div
+        <div
+          ref={horizontalRef}
+          data-works-runway
+          className="relative"
+          style={{ height: `calc(100svh + ${wheelDistance}px + 170vw)` }}
+        >
+          <div className="sticky top-0 h-svh overflow-hidden">
+            <motion.div
+              data-works-track
+              className="flex h-full w-[200%]"
+              style={{ x: trackX }}
+            >
+              <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="relative h-svh min-h-[36rem]"
+          className="relative h-full w-1/2 shrink-0 overflow-hidden"
         >
-          <WorksWheel style={{ backgroundColor: "transparent" }} items={works} label="BEATS" action="" showCaptions showIndex={false} />
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+            style={{ opacity: reducedMotion ? 0.28 : rainOpacity, maskImage: "linear-gradient(to bottom, transparent 0%, black 24%, black 88%, transparent 100%)" }}
+          >
+            <MatrixRain fixedColor="#cd404c" fontSize={16} speed={65} transparent />
+          </motion.div>
+          <WorksWheel className="min-h-0" scrollPosition={wheelPosition} onSeek={seekBeat} style={{ backgroundColor: "transparent" }} items={works} label="BEATS" action="" showCaptions showIndex={false} />
           <p className="pointer-events-none absolute bottom-5 inset-x-5 text-center text-[0.6rem] uppercase tracking-[0.24em] text-[#f4f1ea]/45">
-            <span className="sm:hidden">Swipe sideways to explore</span>
+            <span className="sm:hidden">Scroll to explore</span>
             <span className="hidden sm:inline">Scroll or drag to explore · ↑ ↓ to navigate</span>
           </p>
-        </motion.div>
+              </motion.div>
+
+              <section
+                id="testimonials"
+                aria-labelledby="testimonials-title"
+                className="relative grid h-full w-1/2 shrink-0 place-items-center overflow-hidden bg-[#08070c] px-6 text-[#f4f1ea]"
+              >
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_35%_50%,rgba(174,18,38,0.16),transparent_42%),linear-gradient(90deg,#08070c,#10070b)]" />
+                <div className="relative text-center">
+                  <p className="mb-4 text-[0.62rem] uppercase tracking-[0.42em] text-[#cd404c]">Coming next</p>
+                  <h2 id="testimonials-title" className="text-[clamp(2.5rem,8vw,8rem)] leading-none text-[#f0c4c8]">Testimonials</h2>
+                </div>
+              </section>
+            </motion.div>
+          </div>
+        </div>
       </div>
     </MotionConfig>
   );

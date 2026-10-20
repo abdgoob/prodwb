@@ -13,7 +13,7 @@
 // the front, and every whole number after that is one more item turned past.
 import * as React from "react";
 import Image from "next/image";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type MotionValue } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,9 @@ export interface WorksWheelProps extends Omit<
   items: WorksWheelItem[];
   showCaptions?: boolean;
   showIndex?: boolean;
+  /** Optional page-scroll timeline: 0 is the ring, items.length is the last card. */
+  scrollPosition?: MotionValue<number>;
+  onSeek?: (position: number) => void;
   /** Sits in the middle of the ring. @default undefined */
   label?: string;
   /** Label on the card's hover affordance. Omit to drop it. @default undefined */
@@ -113,6 +116,8 @@ export function WorksWheel({
   action = "View",
   showCaptions = true,
   showIndex = true,
+  scrollPosition,
+  onSeek,
   className,
   style,
   ...props
@@ -193,7 +198,7 @@ export function WorksWheel({
       lastFrame = now;
       const easing = reduced ? 1 : 1 - Math.pow(1 - EASE, elapsed / (1000 / 60));
       const gap = target.current - turn.current;
-      if (Math.abs(gap) < 0.0005) turn.current = target.current;
+      if (scrollPosition || Math.abs(gap) < 0.0005) turn.current = target.current;
       else turn.current += gap * easing;
 
       const t = turn.current;
@@ -237,19 +242,28 @@ export function WorksWheel({
       if (Math.abs(target.current - turn.current) >= 0.0005) frame = requestAnimationFrame(draw);
     };
 
+    if (scrollPosition) target.current = scrollPosition.get();
     frame = requestAnimationFrame(draw);
     wakeRef.current = () => {
       if (!frame) { lastFrame = performance.now(); frame = requestAnimationFrame(draw); }
     };
-    return () => { cancelAnimationFrame(frame); wakeRef.current = () => {}; };
-  }, [metrics, stage.h, count, last, reduced]);
+    const unsubscribe = scrollPosition?.on("change", (position) => {
+      target.current = clamp(position, 0, last + 1);
+      wakeRef.current();
+    });
+    return () => { unsubscribe?.(); cancelAnimationFrame(frame); wakeRef.current = () => {}; };
+  }, [metrics, stage.h, count, last, reduced, scrollPosition]);
 
   const to = React.useCallback(
     (next: number) => {
+      if (scrollPosition) {
+        onSeek?.(clamp(next, 0, last + 1));
+        return;
+      }
       target.current = clamp(next, 0, last + 1);
       wakeRef.current();
     },
-    [last],
+    [last, scrollPosition, onSeek],
   );
 
   // Native listener, because the wheel has to be cancellable - and it only
@@ -257,7 +271,7 @@ export function WorksWheel({
   // either end instead of trapping the reader.
   React.useEffect(() => {
     const el = stageRef.current;
-    if (!el) return;
+    if (!el || scrollPosition) return;
     const onWheel = (event: WheelEvent) => {
       // Let the page arrive at the stage before the wheel takes the gesture.
       if (event.ctrlKey || el.getBoundingClientRect().top > 1) return;
@@ -280,7 +294,7 @@ export function WorksWheel({
       el.removeEventListener("wheel", onWheel);
       window.clearTimeout(settling.current);
     };
-  }, [to, last]);
+  }, [to, last, scrollPosition]);
 
   const drag = React.useRef<number | null>(null);
   const settling = React.useRef(0);
@@ -302,13 +316,15 @@ export function WorksWheel({
       <div
         ref={stageRef}
         data-works-wheel-stage
+        data-scroll-driven={scrollPosition ? "true" : undefined}
         tabIndex={0}
         role="listbox"
         aria-label={label}
         aria-activedescendant={`works-wheel-${active}`}
-        className="focus-visible:outline-foreground absolute inset-0 cursor-grab touch-pan-y sm:touch-pan-x outline-none focus-visible:outline-2 focus-visible:-outline-offset-4 active:cursor-grabbing"
+        className={cn("focus-visible:outline-foreground absolute inset-0 cursor-grab touch-pan-y outline-none focus-visible:outline-2 focus-visible:-outline-offset-4 active:cursor-grabbing", !scrollPosition && "sm:touch-pan-x")}
         style={{ perspective: `${metrics.depth}px` }}
         onPointerDown={(event) => {
+          if (scrollPosition && event.pointerType === "touch") return;
           drag.current = event.pointerType === "touch" ? event.clientX : event.clientY;
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
@@ -323,9 +339,11 @@ export function WorksWheel({
         onPointerUp={() => {
           // Land on an item rather than between two.
           drag.current = null;
-          if (target.current > 1) to(Math.round(target.current));
+          if (!scrollPosition && target.current > 1) to(Math.round(target.current));
         }}
         onKeyDown={(event) => {
+          if (scrollPosition && ((event.key === "ArrowUp" && target.current <= 0) ||
+            (event.key === "ArrowDown" && target.current >= last + 1))) return;
           if (event.key === "ArrowDown") to(Math.round(target.current) + 1);
           else if (event.key === "ArrowUp") to(Math.round(target.current) - 1);
           else return;

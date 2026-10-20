@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import { PAGE_SCROLL_SEEK } from "@/lib/page-scroll";
 
 // Apply the supplied layered transition to the existing hero artwork.
 export function ParallaxComponent({ children }: { children: ReactNode }) {
@@ -43,15 +44,22 @@ export function ParallaxComponent({ children }: { children: ReactNode }) {
       const lenis = new Lenis({
         lerp: 0.1,
         syncTouch: false,
-        // Once the wheel reaches the viewport, its own scroll handler takes over.
+        // Only standalone wheels consume gestures; the page-driven wheel uses Lenis.
         prevent: (node) => node.hasAttribute("data-works-wheel-stage") &&
+          node.getAttribute("data-scroll-driven") !== "true" &&
           node.getBoundingClientRect().top <= 1,
       });
       const tick = (time: number) => lenis.raf(time * 1000);
+      const seek = (event: Event) => {
+        event.preventDefault();
+        lenis.scrollTo((event as CustomEvent<number>).detail, { immediate: true, force: true });
+      };
+      window.addEventListener(PAGE_SCROLL_SEEK, seek);
       lenis.on("scroll", ScrollTrigger.update);
       gsap.ticker.add(tick);
 
       return () => {
+        window.removeEventListener(PAGE_SCROLL_SEEK, seek);
         gsap.ticker.remove(tick);
         lenis.off("scroll", ScrollTrigger.update);
         lenis.destroy();
