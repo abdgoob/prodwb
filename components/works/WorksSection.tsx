@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import localFont from "next/font/local";
-import { MotionConfig, motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { MotionConfig, motion, useScroll, useTransform, useReducedMotion, useMotionValue } from "framer-motion";
 import { MatrixRain } from "@/components/ui/matrix-rain";
 import { WorksWheel, type WorksWheelItem } from "@/components/ui/works-wheel";
+import TestimonialsSection from "@/components/testimonials/TestimonialsSection";
 import { seekPage } from "@/lib/page-scroll";
 
 const beatsFont = localFont({ src: "../../Aresink.otf", variable: "--font-beats", display: "swap" });
@@ -24,6 +25,13 @@ export default function WorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const horizontalRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
+  const viewportWidth = useMotionValue(1);
+  useEffect(() => {
+    const measure = () => viewportWidth.set(document.documentElement.clientWidth);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [viewportWidth]);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "start start"] });
   const { scrollYProgress: horizontalProgress } = useScroll({
     target: horizontalRef,
@@ -31,7 +39,10 @@ export default function WorksSection() {
   });
   const rainOpacity = useTransform(scrollYProgress, [0, 0.2, 0.85, 1], [0, 0.06, 0.38, 0.42]);
   const wheelDistance = works.length * SCROLL_PER_BEAT;
-  const wheelPosition = useTransform(() => Math.min(works.length, Math.max(0, horizontalProgress.get() * works.length)));
+  // One continuous position controls both phases, independent of pointer location.
+  const travel = useTransform(() => horizontalProgress.get() * (wheelDistance + viewportWidth.get() * 1.7));
+  const wheelPosition = useTransform(() => Math.min(works.length, Math.max(0, travel.get() / SCROLL_PER_BEAT)));
+  const trackX = useTransform(() => -Math.min(viewportWidth.get(), Math.max(0, (travel.get() - wheelDistance) / 1.7)));
   const seekBeat = useCallback((position: number) => {
     const runway = horizontalRef.current;
     if (!runway) return;
@@ -46,19 +57,20 @@ export default function WorksSection() {
           ref={horizontalRef}
           data-works-runway
           className="relative"
-          style={{ height: `calc(100svh + ${wheelDistance}px)` }}
+          style={{ height: `calc(100svh + ${wheelDistance}px + 170vw)` }}
         >
           <div className="sticky top-0 h-svh overflow-hidden">
             <motion.div
               data-works-track
-              className="relative h-full w-full"
+              className="flex h-full w-[200%]"
+              style={{ x: trackX }}
             >
               <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="relative h-full w-full overflow-hidden"
+          className="relative h-full w-1/2 shrink-0 overflow-hidden"
         >
           <motion.div
             aria-hidden="true"
@@ -73,6 +85,10 @@ export default function WorksSection() {
             <span className="hidden sm:inline">Scroll or drag to explore · ↑ ↓ to navigate</span>
           </p>
               </motion.div>
+
+              <div className="h-full w-1/2 shrink-0">
+                <TestimonialsSection />
+              </div>
             </motion.div>
           </div>
         </div>

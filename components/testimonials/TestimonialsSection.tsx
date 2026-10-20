@@ -129,9 +129,7 @@ export default function TestimonialsSection() {
       aria-labelledby="testimonials-title"
       className={`${beatsFont.variable} relative isolate min-h-svh overflow-hidden bg-[#08070c] [contain:layout_paint]`}
     >
-      <h2 id="testimonials-title" className="sr-only">
-        Testimonials
-      </h2>
+      <h2 id="testimonials-title" className="sr-only">Artist testimonials</h2>
       {ready ? (
         <DiscCascadeCarousel
           items={voices}
@@ -140,9 +138,11 @@ export default function TestimonialsSection() {
           indexLabel="Voices"
           defaultIndex={0}
           loop
-          autoplay={4500}
+          frame={false}
+          autoplay={0}
           spin={0}
-          sheen={0.35}
+          sheen={0.2}
+          depth={0.24}
           height="100svh"
           background="radial-gradient(circle at 35% 50%, rgba(174,18,38,0.16), transparent 42%), #08070c"
           color="#f4f1ea"
@@ -150,12 +150,10 @@ export default function TestimonialsSection() {
           sans="var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif"
           display="var(--font-beats), var(--font-cybrok), sans-serif"
           fontHref={null}
-          hint="Drag · ← →"
+          hint={"Drag \u00b7 \u2190 \u2192"}
           ariaLabel="Testimonials"
         />
-      ) : (
-        <div className="h-svh" aria-hidden="true" />
-      )}
+      ) : <div className="h-svh" aria-hidden="true" />}
     </section>
   );
 }

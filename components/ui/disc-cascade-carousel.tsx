@@ -1,5 +1,8 @@
 "use client"
 
+/* eslint-disable react-hooks/refs -- Supplied imperative spring engine owns frame poses outside React; renders retain its current pose. */
+/* eslint-disable @next/next/no-img-element -- Local disc textures use native images inside the supplied 3D engine. */
+
 import * as React from "react"
 
 /**
@@ -208,7 +211,8 @@ export function poseOf(dx: number, d: number, c: PoseConfig) {
     roll: d * c.roll,
     zIndex: 100 + Math.round(d * 10),
     opacity: d < -2.5 ? Math.max(0, 1 - (-d - 2.5) / 1.2) : 1,
-    hidden: dx < -4 || dx > 2.8,
+    hidden: Math.abs(dx) > 1.75,
+    scale: 1 - Math.min(Math.abs(dx), 1) * 0.28,
   }
 }
 // #endregion
@@ -293,6 +297,8 @@ const CSS =
   ".dcc-slide[data-active] .dcc-tilt{transform:translateZ(var(--dcc-lift,0px)) " +
   "rotateX(calc(var(--dcc-py,0) * -12deg)) rotateY(calc(var(--dcc-px,0) * 12deg))}" +
   ".dcc-slide[data-active]:hover{--dcc-lift:calc(var(--dcc-s) * .05)}" +
+  ".dcc-slide:not([data-active]) .dcc-disc{filter:blur(2px) brightness(.58)}" +
+  ".dcc-slide:not([data-active]) .dcc-sheen,.dcc-slide:not([data-active]) .dcc-shade{display:none}" +
   ".dcc-shade{position:absolute;inset:0;border-radius:50%;pointer-events:none;" +
   "transform:translate3d(0,7%,-18px) scale(.97);" +
   "background:radial-gradient(circle closest-side,transparent 30%,rgba(0,0,0,.2) 52%,rgba(0,0,0,.1) 80%,transparent 100%)}" +
@@ -651,7 +657,7 @@ export default function DiscCascadeCarousel({
     return {
       transform:
         "translate3d(calc(" + p.x.toFixed(4) + " * var(--dcc-s)), calc(" + p.y.toFixed(4) + " * var(--dcc-s)), calc(" +
-        p.z.toFixed(4) + " * var(--dcc-s))) rotateZ(" + c.tilt + "deg) rotateY(" + p.yaw.toFixed(3) + "deg) rotateX(8deg)",
+        p.z.toFixed(4) + " * var(--dcc-s))) rotateZ(" + c.tilt + "deg) rotateY(" + p.yaw.toFixed(3) + "deg) rotateX(8deg) scale(" + p.scale.toFixed(3) + ")",
       roll: p.roll.toFixed(2) + "deg",
       glint: (p.yaw * 3 + p.x * 40).toFixed(1) + "deg",
       zIndex: p.zIndex,
@@ -665,6 +671,10 @@ export default function DiscCascadeCarousel({
       const el = slideRefs.current[i]
       if (!el) continue
       const t = styleFor(i, E.a, E.b)
+      if (t.hidden) {
+        el.style.visibility = "hidden"
+        continue
+      }
       el.style.transform = t.transform
       el.style.zIndex = "" + t.zIndex
       el.style.opacity = t.opacity < 1 ? t.opacity.toFixed(3) : ""
