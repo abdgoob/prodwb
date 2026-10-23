@@ -1,9 +1,11 @@
 "use client"
 
 /* eslint-disable react-hooks/refs -- Supplied imperative spring engine owns frame poses outside React; renders retain its current pose. */
-/* eslint-disable @next/next/no-img-element -- Local disc textures use native images inside the supplied 3D engine. */
+/* eslint-disable react-hooks/immutability -- The imperative engine mutates its private frame cache outside React. */
 
 import * as React from "react"
+import Image from "next/image"
+import { frame as motionFrame, cancelFrame, type MotionValue } from "framer-motion"
 
 /**
  * Disc Cascade Carousel — a film catalogue told in discs. Each title is a
@@ -49,6 +51,8 @@ export type DiscCascadeItem = {
   reviews?: DiscReview[]
   /** Label art. Without one the label is generated from `pattern` and `palette`. */
   src?: string
+  /** Precomposed transparent disc face; keeps artwork and print in one moving texture. */
+  faceSrc?: string
   alt?: string
   /** Generated label pattern. Defaults by position. */
   pattern?: DiscPattern
@@ -65,6 +69,11 @@ export type DiscCascadeItem = {
 }
 
 export type DiscNavLink = { label: string; href?: string }
+
+export type DiscPerformanceState = {
+  moving: boolean
+  constrained: boolean
+}
 
 export type DiscCascadeCarouselProps = {
   items: DiscCascadeItem[]
@@ -127,6 +136,13 @@ export type DiscCascadeCarouselProps = {
   index?: number
   defaultIndex?: number
   onIndexChange?: (index: number) => void
+  /** Reports motion and adaptive performance state without firing on every frame. */
+  onPerformanceStateChange?: (state: DiscPerformanceState) => void
+  /** Continue past the final disc into the following section. */
+  onEndReached?: () => void
+  /** Continuous 0..last position driven by a page-scroll runway. */
+  scrollPosition?: MotionValue<number>
+  onSeek?: (index: number) => void
   /** Clicking (or Enter on) the disc that's already chosen. */
   onSelect?: (item: DiscCascadeItem, index: number) => void
   ariaLabel?: string
@@ -281,7 +297,7 @@ const PALETTES: [string, string, string][] = [
 ]
 
 const CSS =
-  ".dcc-root{position:relative;overflow:hidden;width:100%;container-type:inline-size;" +
+  ".dcc-root{position:relative;overflow:hidden;width:100%;container-type:inline-size;contain:layout paint style;isolation:isolate;" +
   "color:var(--color-foreground,#1a1a1a);user-select:none;-webkit-user-select:none;touch-action:pan-y;" +
   "outline:none;-webkit-tap-highlight-color:transparent;--dcc-pad:clamp(16px,3.6cqw,44px)}" +
   ".dcc-root:focus-visible{box-shadow:inset 0 0 0 2px var(--color-primary,#171717)}" +
@@ -291,9 +307,12 @@ const CSS =
   ".dcc-stage{position:absolute;left:50%;top:52%;width:var(--dcc-s);aspect-ratio:1/1;" +
   "transform:translate(-50%,-50%);perspective:calc(var(--dcc-s) * 3.2)}" +
   ".dcc-slide{position:absolute;inset:0;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;" +
-  "border-radius:50%;cursor:pointer;will-change:transform;transform-style:preserve-3d;" +
+  "border-radius:50%;cursor:pointer;will-change:auto;transform-style:preserve-3d;backface-visibility:hidden;" +
   "-webkit-tap-highlight-color:transparent;outline:none}" +
-  ".dcc-tilt{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.7,.2,1)}" +
+  ".dcc-root[data-motion] .dcc-slide[data-visible]{will-change:transform,opacity}" +
+  ".dcc-root[data-motion] .dcc-slide[data-visible] .dcc-disc{will-change:transform;contain:paint}" +
+  ".dcc-root[data-motion] .dcc-slide[data-visible] .dcc-roll,.dcc-root[data-motion] .dcc-slide[data-visible] .dcc-glint{will-change:transform}" +
+  ".dcc-tilt{position:absolute;inset:0;transform-style:preserve-3d;backface-visibility:hidden;transition:transform .5s cubic-bezier(.2,.7,.2,1)}" +
   ".dcc-slide[data-active] .dcc-tilt{transform:translateZ(var(--dcc-lift,0px)) " +
   "rotateX(calc(var(--dcc-py,0) * -12deg)) rotateY(calc(var(--dcc-px,0) * 12deg))}" +
   ".dcc-slide[data-active]:hover{--dcc-lift:calc(var(--dcc-s) * .05)}" +
@@ -302,14 +321,15 @@ const CSS =
   ".dcc-shade{position:absolute;inset:0;border-radius:50%;pointer-events:none;" +
   "transform:translate3d(0,7%,-18px) scale(.97);" +
   "background:radial-gradient(circle closest-side,transparent 30%,rgba(0,0,0,.2) 52%,rgba(0,0,0,.1) 80%,transparent 100%)}" +
-  ".dcc-edge,.dcc-disc{position:absolute;inset:0;border-radius:50%;" +
+  ".dcc-edge,.dcc-disc{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;" +
   "-webkit-mask:radial-gradient(circle closest-side,transparent 16.6%,#000 17.1%);" +
   "mask:radial-gradient(circle closest-side,transparent 16.6%,#000 17.1%)}" +
   ".dcc-edge{transform:translateZ(-4px);background:linear-gradient(160deg,#d7d9dc,#8d9196 55%,#c4c7cb)}" +
   ".dcc-disc{overflow:hidden;background:#cfd2d6;" +
   "box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),inset 0 0 0 2px rgba(0,0,0,.08)}" +
+  ".dcc-disc[data-baked]{-webkit-mask:none;mask:none;background:transparent}" +
   ".dcc-roll,.dcc-idle{position:absolute;inset:0;border-radius:50%}" +
-  ".dcc-roll{transform:rotate(var(--dcc-roll,0deg))}" +
+  ".dcc-roll{transform:rotate(0deg)}" +
   ".dcc-root[data-spin] .dcc-idle{animation:dcc-spin var(--dcc-spin) linear infinite;animation-play-state:paused}" +
   ".dcc-root[data-spin] .dcc-slide[data-active] .dcc-idle{animation-play-state:running}" +
   ".dcc-root[data-dragging] .dcc-slide .dcc-idle{animation-play-state:paused}" +
@@ -318,10 +338,11 @@ const CSS =
   ".dcc-idle>svg,.dcc-hub{position:absolute;inset:0;width:100%;height:100%;max-width:none;display:block;overflow:visible}" +
   ".dcc-hub{pointer-events:none}" +
   ".dcc-sheen{position:absolute;inset:0;border-radius:50%;pointer-events:none;mix-blend-mode:screen;opacity:var(--dcc-sheen);" +
-  "background:conic-gradient(from calc(var(--dcc-glint,0deg) + var(--dcc-px,0) * 70deg)," +
+  "background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),transparent 46%)}" +
+  ".dcc-glint{position:absolute;inset:0;border-radius:50%;transform:rotate(calc(var(--dcc-glint,0deg) + var(--dcc-px,0) * 70deg));" +
+  "background:conic-gradient(from 0deg," +
   "transparent 0deg,rgba(255,255,255,.5) 16deg,transparent 38deg,transparent 140deg," +
-  "rgba(150,215,255,.32) 168deg,rgba(255,170,225,.32) 186deg,rgba(255,236,170,.26) 200deg,transparent 224deg,transparent 360deg)," +
-  "radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),transparent 46%)}" +
+  "rgba(150,215,255,.32) 168deg,rgba(255,170,225,.32) 186deg,rgba(255,236,170,.26) 200deg,transparent 224deg,transparent 360deg)}" +
   ".dcc-slide:focus-visible .dcc-disc{box-shadow:inset 0 0 0 3px var(--color-background,#fff),inset 0 0 0 6px var(--color-primary,#171717)}" +
   ".dcc-nav{position:absolute;top:calc(var(--dcc-pad) * .9);left:50%;transform:translateX(-50%);z-index:5;" +
   "display:flex;align-items:center;gap:clamp(12px,1.8cqw,22px);font-size:12px;white-space:nowrap}" +
@@ -358,7 +379,7 @@ const CSS =
   ".dcc-row dd{margin:0;font-size:10.5px;line-height:13px;text-align:right}" +
   ".dcc-row dd span{display:block}" +
   ".dcc-in{animation:dcc-in .8s cubic-bezier(.2,.7,.1,1) both;animation-delay:calc(var(--i,0) * 60ms)}" +
-  "@keyframes dcc-in{from{opacity:0;transform:translateY(12px);filter:blur(5px)}}" +
+  "@keyframes dcc-in{from{opacity:0;transform:translateY(12px)}}" +
   ".dcc-revs{position:absolute;bottom:calc(var(--dcc-pad) * 1.1);left:50%;transform:translateX(-50%);z-index:4;" +
   "display:flex;gap:clamp(24px,7cqw,96px);pointer-events:none}" +
   ".dcc-rev{width:clamp(130px,15cqw,200px);text-align:center}" +
@@ -535,7 +556,7 @@ function Print({ item, i, uid, mark, ink, halo }: { item: DiscCascadeItem; i: nu
     )
   }
   return (
-    <svg viewBox="0 0 200 200" aria-hidden="true" style={{ maxWidth: "none" }}>
+    <svg className="dcc-print" viewBox="0 0 200 200" aria-hidden="true" style={{ maxWidth: "none" }}>
       <defs>
         <path id={uid + "top"} d="M28 100a72 72 0 1 1 144 0" />
         <path id={uid + "bot"} d="M14 100a86 86 0 0 0 172 0" />
@@ -620,11 +641,16 @@ export default function DiscCascadeCarousel({
   index,
   defaultIndex = 2,
   onIndexChange,
+  onPerformanceStateChange,
+  onEndReached,
+  scrollPosition,
+  onSeek,
   onSelect,
   ariaLabel = "Film catalogue",
   className = "",
 }: DiscCascadeCarouselProps) {
   const n = items.length
+  const bakeMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("bake-disc-faces")
   const start = Math.min(Math.max(Math.round(index ?? defaultIndex), 0), Math.max(n - 1, 0))
   const [active, setActive] = React.useState(start)
   const [dragging, setDragging] = React.useState(false)
@@ -639,17 +665,57 @@ export default function DiscCascadeCarousel({
   const stageRef = React.useRef(null as HTMLDivElement | null)
   const menuRef = React.useRef(null as HTMLDivElement | null)
   const slideRefs = React.useRef([] as (HTMLButtonElement | null)[])
+  const rollRefs = React.useRef([] as (HTMLSpanElement | null)[])
+  const glintRefs = React.useRef([] as (HTMLSpanElement | null)[])
 
   const E = React.useRef({
     a: start, va: 0, b: start, vb: 0, target: start,
     raf: 0, last: 0, size: 300, reduced: false,
     drag: null as null | { id: number; x0: number; pos0: number; moved: boolean; samples: { t: number; x: number }[] },
     clickBlock: false, wheel: 0, wheelAt: 0, stepAt: 0,
+    moving: false, constrained: false, frameSamples: [] as number[],
+    visualActive: start,
+    hoverRaf: 0, pointerX: 0, pointerY: 0,
+    painted: [] as Array<{
+      transform?: string
+      zIndex?: string
+      opacity?: string
+      visibility?: string
+      roll?: string
+      glint?: string
+    }>,
   }).current
   const cfg = React.useRef({ n, loop, spacing, rise, depth, yaw, fan, tilt, roll, bounce, duration })
   cfg.current = { n, loop, spacing, rise, depth, yaw, fan, tilt, roll, bounce, duration }
   const cb = React.useRef({ onIndexChange, active })
   cb.current = { onIndexChange, active }
+  const performanceCb = React.useRef(onPerformanceStateChange)
+  performanceCb.current = onPerformanceStateChange
+
+  const reportPerformance = () => {
+    performanceCb.current?.({ moving: E.moving, constrained: E.constrained })
+  }
+
+  const setMoving = (moving: boolean) => {
+    if (E.moving === moving) return
+    E.moving = moving
+    rootRef.current?.toggleAttribute("data-motion", moving)
+    reportPerformance()
+  }
+
+  const setConstrained = () => {
+    if (E.constrained) return
+    E.constrained = true
+    rootRef.current?.setAttribute("data-performance", "constrained")
+    reportPerformance()
+  }
+
+  const commitActive = (i: number) => {
+    if (i === cb.current.active) return
+    cb.current.active = i
+    setActive(i)
+    cb.current.onIndexChange?.(i)
+  }
 
   const styleFor = (i: number, a: number, b: number) => {
     const c = cfg.current
@@ -660,7 +726,9 @@ export default function DiscCascadeCarousel({
         p.z.toFixed(4) + " * var(--dcc-s))) rotateZ(" + c.tilt + "deg) rotateY(" + p.yaw.toFixed(3) + "deg) rotateX(8deg) scale(" + p.scale.toFixed(3) + ")",
       roll: p.roll.toFixed(2) + "deg",
       glint: (p.yaw * 3 + p.x * 40).toFixed(1) + "deg",
-      zIndex: p.zIndex,
+      // In a finite line every disc's rank stays fixed. Updating all z-indices
+      // each tenth of a step rebuilt stacking layers without changing the order.
+      zIndex: c.loop ? p.zIndex : 100 + i * 10,
       opacity: p.opacity,
       hidden: p.hidden || p.opacity <= 0,
     }
@@ -671,22 +739,59 @@ export default function DiscCascadeCarousel({
       const el = slideRefs.current[i]
       if (!el) continue
       const t = styleFor(i, E.a, E.b)
-      if (t.hidden) {
-        el.style.visibility = "hidden"
+      const previous = E.painted[i] ?? {}
+      const hidden = t.hidden
+      const visibility = hidden ? "hidden" : ""
+      if (previous.visibility !== visibility) {
+        el.style.visibility = visibility
+        el.toggleAttribute("data-visible", !hidden)
+        previous.visibility = visibility
+      }
+      if (hidden) {
+        E.painted[i] = previous
         continue
       }
-      el.style.transform = t.transform
-      el.style.zIndex = "" + t.zIndex
-      el.style.opacity = t.opacity < 1 ? t.opacity.toFixed(3) : ""
-      el.style.visibility = t.hidden ? "hidden" : ""
-      el.style.setProperty("--dcc-roll", t.roll)
-      el.style.setProperty("--dcc-glint", t.glint)
+      const zIndex = "" + t.zIndex
+      const opacity = t.opacity < 1 ? t.opacity.toFixed(3) : ""
+      const transform = t.transform
+      if (previous.transform !== transform) {
+        el.style.transform = transform
+        previous.transform = transform
+      }
+      if (previous.zIndex !== zIndex) {
+        el.style.zIndex = zIndex
+        previous.zIndex = zIndex
+      }
+      if (previous.opacity !== opacity) {
+        el.style.opacity = opacity
+        previous.opacity = opacity
+      }
+      if (previous.roll !== t.roll) {
+        if (rollRefs.current[i]) rollRefs.current[i]!.style.transform = "rotate(" + t.roll + ")"
+        previous.roll = t.roll
+      }
+      if (previous.glint !== t.glint) {
+        glintRefs.current[i]?.style.setProperty("--dcc-glint", t.glint)
+        previous.glint = t.glint
+      }
+      E.painted[i] = previous
     }
   }
 
   const frame_ = (now: number) => {
-    const dt = Math.min((now - (E.last || now)) / 1000, 1 / 20)
+    const elapsed = E.last ? now - E.last : 0
+    const dt = Math.min(elapsed / 1000, 1 / 20)
     E.last = now
+    if (!E.constrained && elapsed > 0 && elapsed < 250) {
+      E.frameSamples.push(elapsed)
+      if (E.frameSamples.length > 24) E.frameSamples.shift()
+      if (E.frameSamples.length >= 6) {
+        const ordered = [...E.frameSamples].sort((a, b) => a - b)
+        const p75 = ordered[Math.floor(ordered.length * 0.75)]
+        const missed = E.frameSamples.filter((sample) => sample > 34).length
+        if (p75 > 28 || missed >= 2) setConstrained()
+      }
+    }
     const c = cfg.current
     const s = springOf(c.bounce, c.duration)
     if (E.reduced && !E.drag) {
@@ -702,7 +807,9 @@ export default function DiscCascadeCarousel({
     if (settled) {
       E.a = E.b = E.target
       E.va = E.vb = 0
+      setMoving(false)
       paint()
+      commitActive(indexAt(E.target, c.n, c.loop))
       E.raf = 0
       E.last = 0
       return
@@ -711,23 +818,91 @@ export default function DiscCascadeCarousel({
   }
 
   const kick = () => {
-    if (!E.raf) E.raf = requestAnimationFrame(frame_)
+    if (!E.raf) {
+      E.last = 0
+      E.frameSamples = []
+      setMoving(true)
+      E.raf = requestAnimationFrame(frame_)
+    }
   }
 
   const setTarget = (t: number) => {
     const c = cfg.current
     if (!c.n) return
     E.target = c.loop ? t : Math.min(Math.max(t, 0), c.n - 1)
-    const i = indexAt(E.target, c.n, c.loop)
-    if (i !== cb.current.active) {
-      setActive(i)
-      cb.current.onIndexChange?.(i)
-    }
     kick()
   }
 
-  const goTo = (i: number) => setTarget(targetFor(i, E.target, cfg.current.n, cfg.current.loop))
-  const step = (by: number) => setTarget(Math.round(E.target) + by)
+  const goTo = (i: number) => {
+    if (scrollPosition && onSeek) onSeek(Math.min(Math.max(i, 0), n - 1))
+    else setTarget(targetFor(i, E.target, cfg.current.n, cfg.current.loop))
+  }
+  const step = (by: number) => goTo(Math.round(E.target) + by)
+
+  React.useEffect(() => {
+    if (!scrollPosition) return
+    let scheduled = false
+    let settling = false
+    let version = 0
+    let observedVersion = -1
+    let quietFrames = 0
+    const update = () => {
+      scheduled = false
+      if (E.drag) return
+      if (E.raf && !E.drag) {
+        cancelAnimationFrame(E.raf)
+        E.raf = 0
+        E.last = 0
+      }
+      const position = Math.min(Math.max(scrollPosition.get(), 0), Math.max(n - 1, 0))
+      E.a = E.b = E.target = position
+      E.va = E.vb = 0
+      paint()
+      const chosen = indexAt(position, n, false)
+      if (chosen !== E.visualActive) {
+        for (let i = 0; i < slideRefs.current.length; i++) {
+          const slide = slideRefs.current[i]
+          if (!slide) continue
+          slide.toggleAttribute("data-active", i === chosen)
+          if (i === chosen) slide.setAttribute("aria-current", "true")
+          else slide.removeAttribute("aria-current")
+          slide.tabIndex = i === chosen ? 0 : -1
+        }
+        E.visualActive = chosen
+      }
+    }
+    const settle = () => {
+      if (observedVersion !== version) {
+        observedVersion = version
+        quietFrames = 0
+      } else quietFrames++
+      if (quietFrames < 2) return
+      cancelFrame(settle)
+      settling = false
+      setMoving(false)
+      commitActive(indexAt(E.target, n, false))
+    }
+    const onChange = () => {
+      version++
+      setMoving(true)
+      if (!scheduled) {
+        scheduled = true
+        motionFrame.render(update, false, true)
+      }
+      if (!settling) {
+        settling = true
+        motionFrame.postRender(settle, true)
+      }
+    }
+    update()
+    const unsubscribe = scrollPosition.on("change", onChange)
+    return () => {
+      unsubscribe()
+      cancelFrame(update)
+      cancelFrame(settle)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollPosition, n])
 
   React.useEffect(() => {
     if (index == null || !n) return
@@ -737,9 +912,26 @@ export default function DiscCascadeCarousel({
 
   React.useEffect(() => {
     if (n && !loop && E.target > n - 1) setTarget(n - 1)
+    E.painted = []
     paint()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [n, loop, spacing, rise, depth, yaw, fan, tilt, roll])
+
+  React.useEffect(() => {
+    const nav = navigator as Navigator & {
+      deviceMemory?: number
+      connection?: { saveData?: boolean }
+    }
+    const constrained =
+      (nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 4) ||
+      (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 4) ||
+      nav.connection?.saveData === true
+    if (constrained) E.constrained = true
+    rootRef.current?.setAttribute("data-performance", E.constrained ? "constrained" : "full")
+    reportPerformance()
+    // Performance state is owned by the imperative animation engine.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [E])
 
   React.useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -764,7 +956,10 @@ export default function DiscCascadeCarousel({
     return () => ro.disconnect()
   }, [E])
 
-  React.useEffect(() => () => cancelAnimationFrame(E.raf), [E])
+  React.useEffect(() => () => {
+    cancelAnimationFrame(E.raf)
+    cancelAnimationFrame(E.hoverRaf)
+  }, [E])
 
   React.useEffect(() => {
     if (!fontHref) return
@@ -791,7 +986,9 @@ export default function DiscCascadeCarousel({
       E.wheel += e.deltaX
       if (Math.abs(E.wheel) > 50 && now - E.stepAt > 320) {
         setStopped(true)
-        step(Math.sign(E.wheel))
+        const direction = Math.sign(E.wheel)
+        if (direction > 0 && !cfg.current.loop && E.target >= cfg.current.n - 1) onEndReached?.()
+        else step(direction)
         E.wheel = 0
         E.stepAt = now
       }
@@ -799,7 +996,7 @@ export default function DiscCascadeCarousel({
     el.addEventListener("wheel", onWheel, { passive: false })
     return () => el.removeEventListener("wheel", onWheel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [E])
+  }, [E, onEndReached])
 
   React.useEffect(() => {
     if (!menu) return
@@ -846,13 +1043,19 @@ export default function DiscCascadeCarousel({
   }
   const onPointerMove = (e: React.PointerEvent) => {
     if (e.pointerType === "mouse" && !E.drag?.moved) {
-      const st = stageRef.current?.getBoundingClientRect()
-      const root = rootRef.current
-      if (st && root) {
-        const cx = Math.max(-1, Math.min(1, (e.clientX - (st.left + st.width / 2)) / st.width))
-        const cy = Math.max(-1, Math.min(1, (e.clientY - (st.top + st.height / 2)) / st.height))
-        root.style.setProperty("--dcc-px", cx.toFixed(3))
-        root.style.setProperty("--dcc-py", cy.toFixed(3))
+      E.pointerX = e.clientX
+      E.pointerY = e.clientY
+      if (!E.hoverRaf) {
+        E.hoverRaf = requestAnimationFrame(() => {
+          E.hoverRaf = 0
+          const st = stageRef.current?.getBoundingClientRect()
+          const root = rootRef.current
+          if (!st || !root) return
+          const cx = Math.max(-1, Math.min(1, (E.pointerX - (st.left + st.width / 2)) / st.width))
+          const cy = Math.max(-1, Math.min(1, (E.pointerY - (st.top + st.height / 2)) / st.height))
+          root.style.setProperty("--dcc-px", cx.toFixed(3))
+          root.style.setProperty("--dcc-py", cy.toFixed(3))
+        })
       }
     }
     const d = E.drag
@@ -873,11 +1076,6 @@ export default function DiscCascadeCarousel({
     E.a = c.loop ? raw : rubber(raw, c.n)
     d.samples.push({ t: e.timeStamp, x: e.clientX })
     if (d.samples.length > 6) d.samples.shift()
-    const i = indexAt(E.a, c.n, c.loop)
-    if (i !== cb.current.active) {
-      setActive(i)
-      cb.current.onIndexChange?.(i)
-    }
     kick()
   }
   const onPointerUp = (e: React.PointerEvent) => {
@@ -895,9 +1093,11 @@ export default function DiscCascadeCarousel({
     const ms = Math.max(last.t - first.t, 1)
     const v = e.type === "pointercancel" ? 0 : (-(last.x - first.x) / ms / (E.size * cfg.current.spacing)) * 1000
     E.va = v
-    setTarget(releaseTarget(E.a, v, cfg.current.n, cfg.current.loop))
+    goTo(releaseTarget(E.a, v, cfg.current.n, cfg.current.loop))
   }
   const onPointerLeave = () => {
+    cancelAnimationFrame(E.hoverRaf)
+    E.hoverRaf = 0
     rootRef.current?.style.setProperty("--dcc-px", "0")
     rootRef.current?.style.setProperty("--dcc-py", "0")
   }
@@ -909,7 +1109,10 @@ export default function DiscCascadeCarousel({
     }
     if ((e.target as Element).closest("[data-dcc-menu]")) return
     let handled = true
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") step(1)
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      if (!loop && E.target >= n - 1) onEndReached?.()
+      else step(1)
+    }
     else if (e.key === "ArrowLeft" || e.key === "ArrowUp") step(-1)
     else if (e.key === "Home") goTo(0)
     else if (e.key === "End") goTo(n - 1)
@@ -1049,6 +1252,7 @@ export default function DiscCascadeCarousel({
       <div ref={stageRef} className="dcc-stage">
         {items.map((item, i) => {
           const t = styleFor(i, E.a, E.b)
+          const bakedFace = bakeMode ? undefined : item.faceSrc
           const isActive = i === active
           const pal = item.palette ?? PALETTES[i % PALETTES.length]
           const ink = item.ink ?? (item.src ? "#ffffff" : inkFor(pal[0]))
@@ -1062,6 +1266,7 @@ export default function DiscCascadeCarousel({
               type="button"
               className="dcc-slide"
               data-active={isActive ? "" : undefined}
+              data-visible={!t.hidden ? "" : undefined}
               tabIndex={isActive ? 0 : -1}
               aria-roledescription="slide"
               aria-label={i + 1 + " of " + n + ": " + item.title}
@@ -1073,26 +1278,27 @@ export default function DiscCascadeCarousel({
                   zIndex: t.zIndex,
                   opacity: t.opacity < 1 ? t.opacity : undefined,
                   visibility: t.hidden ? "hidden" : undefined,
-                  ["--dcc-roll" as string]: t.roll,
-                  ["--dcc-glint" as string]: t.glint,
                 } as React.CSSProperties
               }
             >
               <span className="dcc-tilt">
                 <span className="dcc-shade" />
                 <span className="dcc-edge" />
-                <span className="dcc-disc">
-                  <span className="dcc-roll">
+                <span className="dcc-disc" data-baked={bakedFace ? "" : undefined}>
+                  <span className="dcc-roll" ref={(el) => { rollRefs.current[i] = el }} style={{ transform: "rotate(" + t.roll + ")" }}>
                     <span className="dcc-idle" style={{ fontFamily: display }}>
-                      {item.src ? (
-                        <img
-                          src={item.src}
+                      {bakedFace || item.src ? (
+                        <Image
+                          src={bakedFace ?? item.src!}
                           alt={item.alt ?? item.title}
                           draggable={false}
-                          loading={Math.abs(i - start) > 3 ? "lazy" : undefined}
+                          preload={i === start}
+                          loading={i === start ? undefined : "eager"}
                           decoding="async"
                           width={600}
                           height={600}
+                          quality={90}
+                          sizes="(max-width: 720px) 50vmin, 420px"
                           style={{ maxWidth: "none" }}
                         />
                       ) : (
@@ -1100,11 +1306,11 @@ export default function DiscCascadeCarousel({
                           <Art pattern={item.pattern ?? PATTERNS[i % PATTERNS.length]} pal={pal} seed={i + 1} uid={id} />
                         </svg>
                       )}
-                      <Print item={item} i={i} uid={id} mark={brand} ink={ink} halo={item.src ? "rgba(0,0,0,.45)" : pal[0]} />
+                      {bakedFace ? null : <Print item={item} i={i} uid={id} mark={brand} ink={ink} halo={item.src ? "rgba(0,0,0,.45)" : pal[0]} />}
                     </span>
                   </span>
                   <Hub uid={id} />
-                  <span className="dcc-sheen" />
+                  <span className="dcc-sheen"><span className="dcc-glint" ref={(el) => { glintRefs.current[i] = el }} style={{ ["--dcc-glint" as string]: t.glint } as React.CSSProperties} /></span>
                 </span>
               </span>
             </button>
@@ -1139,7 +1345,7 @@ export default function DiscCascadeCarousel({
           <span className="dcc-count" aria-hidden="true">
             <b>{pad(active + 1)}</b> / {pad(n)}
           </span>
-          <button type="button" className="dcc-btn" aria-label="Next testimonial" disabled={atEnd} onClick={() => { setStopped(true); step(1) }}>
+          <button type="button" className="dcc-btn" aria-label={atEnd && onEndReached ? "Continue to reviews" : "Next testimonial"} disabled={atEnd && !onEndReached} onClick={() => { setStopped(true); if (atEnd) onEndReached?.(); else step(1) }}>
             <Arrow dir={1} />
           </button>
         </div>

@@ -25,6 +25,8 @@ export function ParallaxComponent({ children }: { children: ReactNode }) {
           trigger: hero,
           start: "top top",
           end: "bottom top",
+          // Lenis already smooths the scroll position. Tracking it directly
+          // avoids a second easing pass that can visibly catch up at low speed.
           scrub: true,
           invalidateOnRefresh: true,
         },
@@ -42,11 +44,17 @@ export function ParallaxComponent({ children }: { children: ReactNode }) {
       });
 
       const lenis = new Lenis({
-        lerp: 0.1,
+        lerp: 0.085,
+        smoothWheel: true,
         syncTouch: false,
-        // Only standalone wheels consume gestures; the page-driven wheel uses Lenis.
+        // Keep vertical page scrolling smooth over the carousel while leaving
+        // deliberate horizontal gestures to its own interaction engine.
+        virtualScroll: ({ deltaX, deltaY, event }) => {
+          const target = event.target;
+          const overCarousel = target instanceof Element && target.closest(".dcc-root");
+          return !(overCarousel && Math.abs(deltaX) > Math.abs(deltaY));
+        },
         prevent: (node) => {
-          if (node instanceof Element && node.closest(".dcc-root")) return true;
           return node.hasAttribute("data-works-wheel-stage") &&
             node.getAttribute("data-scroll-driven") !== "true" &&
             node.getBoundingClientRect().top <= 1;
@@ -55,10 +63,14 @@ export function ParallaxComponent({ children }: { children: ReactNode }) {
       const tick = (time: number) => lenis.raf(time * 1000);
       const seek = (event: Event) => {
         event.preventDefault();
-        lenis.scrollTo((event as CustomEvent<number>).detail, { immediate: true, force: true });
+        const detail = (event as CustomEvent<number | { top: number; smooth: boolean }>).detail;
+        const top = typeof detail === "number" ? detail : detail.top;
+        const smooth = typeof detail === "number" ? false : detail.smooth;
+        lenis.scrollTo(top, { immediate: !smooth, duration: smooth ? 0.9 : undefined, force: true });
       };
       window.addEventListener(PAGE_SCROLL_SEEK, seek);
       lenis.on("scroll", ScrollTrigger.update);
+      gsap.ticker.lagSmoothing(0);
       gsap.ticker.add(tick);
 
       return () => {

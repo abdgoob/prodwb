@@ -1,6 +1,7 @@
 "use client";
 
 import { MotionConfig, motion } from "framer-motion";
+import { useEffect, useRef } from "react";
 
 import DitherVeil from "./DitherVeil";
 import GrainSplash from "./GrainSplash";
@@ -46,12 +47,29 @@ function SocialMarks() {
 }
 
 export default function HeroSection({ revealed = true }: { revealed?: boolean }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        section.style.contentVisibility = "visible";
+      } else {
+        // Preserve the measured runway size while invisible SVG grain skips layout/paint.
+        section.style.containIntrinsicSize = `${section.offsetWidth}px ${section.offsetHeight}px`;
+        section.style.contentVisibility = "hidden";
+      }
+    });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
   return (
     <MotionConfig reducedMotion="user">
       <section
+        ref={sectionRef}
         data-parallax-layers
         aria-labelledby="hero-title"
-        className="relative isolate min-h-screen min-h-svh w-full overflow-hidden bg-[#08070c] text-[#f4f1ea]"
+        className="relative isolate min-h-screen min-h-svh w-full overflow-hidden bg-[#08070c] text-[#f4f1ea] [content-visibility:auto] [contain-intrinsic-size:auto_100svh]"
       >
         <div
           aria-hidden="true"

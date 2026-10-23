@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react-hooks/refs -- The imperative WebGL renderer reads the latest visual config without restarting. */
+
 import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Mesh, Program, Renderer, Triangle } from 'ogl';
@@ -200,6 +202,8 @@ const GlowCursor = ({
   ...rest
 }: GlowCursorProps) => {
   const [mounted, setMounted] = useState(false);
+  // The portal target only exists after hydration.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -328,6 +332,11 @@ const GlowCursor = ({
       raf = 0;
       if (destroyed || document.hidden) return;
       const config = propsRef.current;
+      if (!config.enabled) {
+        fade = 0;
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        return;
+      }
       const delta = Math.min((now - lastFrameTime) / 16.667, 3);
       lastFrameTime = now;
 
@@ -409,6 +418,7 @@ const GlowCursor = ({
     >
       {mounted && createPortal(<canvas
         ref={canvasRef}
+        data-enabled={enabled ? "" : undefined}
         className="pointer-events-none fixed inset-0 block select-none"
         style={{ mixBlendMode: blendMode, zIndex: 2147483647, width: '100vw', height: '100dvh' }}
         aria-hidden="true"

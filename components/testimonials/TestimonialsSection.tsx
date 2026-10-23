@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import localFont from "next/font/local";
-import type { DiscCascadeItem } from "@/components/ui/disc-cascade-carousel";
+import type { MotionValue } from "framer-motion";
+import type {
+  DiscCascadeItem,
+  DiscPerformanceState,
+} from "@/components/ui/disc-cascade-carousel";
 
 const beatsFont = localFont({ src: "../../Aresink.otf", variable: "--font-beats", display: "swap" });
 
@@ -18,6 +22,7 @@ const voices: DiscCascadeItem[] = [
     title: "Mara Vex",
     label: "Mara",
     src: "/works/cover-1.png",
+    faceSrc: "/works/face-1.png",
     alt: "Mara Vex",
     credits: [
       { label: "Role", value: "Vocalist" },
@@ -32,6 +37,7 @@ const voices: DiscCascadeItem[] = [
     title: "Kade Hollow",
     label: "Kade",
     src: "/works/cover-2.png",
+    faceSrc: "/works/face-2.png",
     alt: "Kade Hollow",
     labelStyle: "block",
     credits: [
@@ -47,6 +53,7 @@ const voices: DiscCascadeItem[] = [
     title: "Lumen Nyx",
     label: "Lumen",
     src: "/works/cover-3.png",
+    faceSrc: "/works/face-3.png",
     alt: "Lumen Nyx",
     credits: [
       { label: "Role", value: "Artist" },
@@ -61,6 +68,7 @@ const voices: DiscCascadeItem[] = [
     title: "Rio Ash",
     label: "Rio",
     src: "/works/cover-4.png",
+    faceSrc: "/works/face-4.png",
     alt: "Rio Ash",
     credits: [
       { label: "Role", value: "Songwriter" },
@@ -75,6 +83,7 @@ const voices: DiscCascadeItem[] = [
     title: "Sable Wren",
     label: "Sable",
     src: "/works/cover-5.png",
+    faceSrc: "/works/face-5.png",
     alt: "Sable Wren",
     labelStyle: "block",
     credits: [
@@ -90,6 +99,7 @@ const voices: DiscCascadeItem[] = [
     title: "Noa Trace",
     label: "Noa",
     src: "/works/cover-6.png",
+    faceSrc: "/works/face-6.png",
     alt: "Noa Trace",
     credits: [
       { label: "Role", value: "Vocalist" },
@@ -102,7 +112,17 @@ const voices: DiscCascadeItem[] = [
   },
 ];
 
-export default function TestimonialsSection() {
+export default function TestimonialsSection({
+  onPerformanceStateChange,
+  scrollPosition,
+  onSeek,
+  onEndReached,
+}: {
+  onPerformanceStateChange?: (state: DiscPerformanceState) => void;
+  scrollPosition?: MotionValue<number>;
+  onSeek?: (index: number) => void;
+  onEndReached?: () => void;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
   const [ready, setReady] = useState(false);
 
@@ -116,20 +136,16 @@ export default function TestimonialsSection() {
           io.disconnect();
         }
       },
-      { rootMargin: "280px 0px", threshold: 0.01 },
+      { rootMargin: "75% 0px", threshold: 0.01 },
     );
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
   return (
-    <section
-      ref={sectionRef}
-      id="testimonials"
-      aria-labelledby="testimonials-title"
-      className={`${beatsFont.variable} relative isolate min-h-svh overflow-hidden bg-[#08070c] [contain:layout_paint]`}
-    >
-      <h2 id="testimonials-title" className="sr-only">Artist testimonials</h2>
+    <>
+    <section ref={sectionRef} id="cd-carousel" aria-label="CD carousel"
+      className={`${beatsFont.variable} relative isolate h-svh w-screen shrink-0 overflow-hidden [contain:layout_paint]`}>
       {ready ? (
         <DiscCascadeCarousel
           items={voices}
@@ -137,23 +153,42 @@ export default function TestimonialsSection() {
           nav={[]}
           indexLabel="Voices"
           defaultIndex={0}
-          loop
+          loop={false}
+          reviews={false}
           frame={false}
           autoplay={0}
           spin={0}
           sheen={0.2}
           depth={0.24}
           height="100svh"
-          background="radial-gradient(circle at 35% 50%, rgba(174,18,38,0.16), transparent 42%), #08070c"
+          background="transparent"
           color="#f4f1ea"
           serif="var(--font-cybrok), var(--font-beats), serif"
           sans="var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif"
           display="var(--font-beats), var(--font-cybrok), sans-serif"
           fontHref={null}
-          hint={"Drag \u00b7 \u2190 \u2192"}
-          ariaLabel="Testimonials"
+          hint="Scroll to explore · Drag · ← →"
+          ariaLabel="CD carousel"
+          onEndReached={onEndReached}
+          scrollPosition={scrollPosition}
+          onSeek={onSeek}
+          onPerformanceStateChange={onPerformanceStateChange}
         />
       ) : <div className="h-svh" aria-hidden="true" />}
     </section>
+    <section id="testimonials" aria-labelledby="testimonials-title"
+      className={`${beatsFont.variable} relative z-10 flex h-svh w-screen shrink-0 flex-col justify-start overflow-y-auto px-6 py-12 text-[#f4f1ea] [content-visibility:auto] [contain-intrinsic-size:100vw_100svh] sm:px-12 lg:justify-center`}>
+      <p className="mb-4 text-xs uppercase tracking-[0.4em] text-[#cd404c]">Voices</p>
+      <h2 id="testimonials-title" className="mb-12 font-[family-name:var(--font-beats)] text-[clamp(2rem,8vw,4.5rem)] leading-tight uppercase">Testimonials & reviews</h2>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {voices.map((voice) => voice.reviews?.map((review) => (
+          <figure key={voice.title} className="flex min-h-48 flex-col justify-between border border-white/15 bg-white/[0.035] p-6">
+            <blockquote className="text-lg leading-relaxed">“{review.quote}”</blockquote>
+            <figcaption className="mt-8 text-sm text-[#cd9ba0]">{review.source}</figcaption>
+          </figure>
+        )))}
+      </div>
+    </section>
+    </>
   );
 }
