@@ -1,8 +1,25 @@
-.drift {
-  animation: drift 9s ease-in-out infinite alternate;
-  transform-box: view-box;
-  transform-origin: center;
+.coordinateSpace {
+  position: absolute;
+  width: 1000px;
+  height: 1000px;
+  transform-origin: 0 0;
+  transform: scale(var(--grain-scale-x, 0), var(--grain-scale-y, 0));
 }
+
+.particles {
+  display: block;
+  overflow: visible;
+}
+
+.drift {
+  position: absolute;
+  inset: 0;
+  animation: drift 9s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: transform;
+}
+
+:global([data-hero-offscreen]) .drift { will-change: auto; }
 
 @keyframes drift {
   0% { transform: translate(-4px, 3px) rotate(-0.3deg); }

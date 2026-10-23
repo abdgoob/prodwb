@@ -52,6 +52,7 @@ export default function HeroSection({ revealed = true }: { revealed?: boolean })
     const section = sectionRef.current;
     if (!section) return;
     const observer = new IntersectionObserver(([entry]) => {
+      section.toggleAttribute("data-hero-offscreen", !entry.isIntersecting);
       if (entry.isIntersecting) {
         section.style.contentVisibility = "visible";
       } else {

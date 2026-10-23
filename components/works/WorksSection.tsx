@@ -6,6 +6,11 @@ import TestimonialsSection from "@/components/testimonials/TestimonialsSection";
 import { MatrixRain } from "@/components/ui/matrix-rain";
 import { seekPage } from "@/lib/page-scroll";
 
+// Keep CD pacing unchanged; give the rightward transition 2.5 screens of scroll.
+const CD_SCROLL_END = 5;
+const HORIZONTAL_START = 6;
+const SCROLL_END = HORIZONTAL_START + 2.5;
+
 export default function WorksSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const runwayRef = useRef<HTMLDivElement>(null);
@@ -23,17 +28,19 @@ export default function WorksSection() {
     target: runwayRef,
     offset: ["start start", "end end"],
   });
-  const discPosition = useTransform(runwayProgress, [0, 5 / 7, 1], [0, 5, 5]);
-  const trackX = useTransform(runwayProgress, [0, 6 / 7, 1], ["0%", "0%", "-50%"]);
+  const discPosition = useTransform(runwayProgress, [0, CD_SCROLL_END / SCROLL_END, 1], [0, 5, 5]);
+  const trackX = useTransform(runwayProgress, [0, HORIZONTAL_START / SCROLL_END, 1], ["0%", "0%", "-50%"]);
   const seekDisc = useCallback((index: number) => {
     const runway = runwayRef.current;
     if (!runway) return;
-    seekPage(window.scrollY + runway.getBoundingClientRect().top + index * window.innerHeight, true);
+    const unit = (runway.offsetHeight - document.documentElement.clientHeight) / SCROLL_END;
+    seekPage(window.scrollY + runway.getBoundingClientRect().top + index * unit, true);
   }, []);
   const seekReviews = useCallback(() => {
     const runway = runwayRef.current;
     if (!runway) return;
-    seekPage(window.scrollY + runway.getBoundingClientRect().top + 7 * window.innerHeight, true);
+    const distance = runway.offsetHeight - document.documentElement.clientHeight;
+    seekPage(window.scrollY + runway.getBoundingClientRect().top + distance, true, 1.6);
   }, []);
 
   return (
@@ -47,7 +54,7 @@ export default function WorksSection() {
             "radial-gradient(circle at 35% 62%, rgba(174,18,38,0.2), rgba(8,7,12,0.18) 38%, rgba(8,7,12,0.72) 76%, #08070c 100%)",
         }}
       >
-        <div ref={runwayRef} className="relative h-[800svh]">
+        <div ref={runwayRef} className="relative" style={{ height: `${(SCROLL_END + 1) * 100}svh` }}>
         <div className="sticky top-0 h-svh overflow-hidden">
         <motion.div
           aria-hidden="true"

@@ -453,13 +453,15 @@ const DitherVeil = ({
       clickBurst
     };
     wakeRef.current();
-  });
+  }, [fit, pattern, pixelSize, levels, palette, inkColor, paperColor, contrast, brightness,
+    revealRadius, softness, linger, rimColor, rim, reverse, wander, clickBurst]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
 
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reducedMotion = motionPreference.matches;
     const renderer = new Renderer({ dpr: Math.min(window.devicePixelRatio || 1, 2), alpha: false, antialias: false });
     const gl = renderer.gl;
     const canvas = gl.canvas;
@@ -560,13 +562,23 @@ const DitherVeil = ({
     let trailUntil = 0;
     let presence = 0;
     let drift = 0;
+    let layoutVersion = 0;
+    let appliedLayout = -1;
+    let appliedSettings: Settings | null = null;
+    let appliedImage: HTMLImageElement | null = null;
+    let pointerPending = false;
+    let clientX = 0, clientY = 0;
     const pointer = { x: 0, y: 0, inside: false, fresh: true, placed: false };
     const brush = { x: 0, y: 0, px: 0, py: 0 };
     const bursts: { x: number; y: number; start: number }[] = [];
 
     const layout = () => {
-      width = Math.max(1, container.clientWidth);
-      height = Math.max(1, container.clientHeight);
+      const nextWidth = Math.max(1, container.clientWidth);
+      const nextHeight = Math.max(1, container.clientHeight);
+      if (nextWidth === width && nextHeight === height && layoutVersion) return;
+      width = nextWidth;
+      height = nextHeight;
+      layoutVersion++;
       renderer.setSize(width, height);
       viewUniforms.uResolution.value = [canvas.width, canvas.height];
       maskUniforms.uSize.value = [width, height];
@@ -642,8 +654,10 @@ const DitherVeil = ({
 
     const frame = (now: number) => {
       raf = 0;
+      if (!visible || document.hidden) return;
       const s = settingsRef.current;
       if (!s) return;
+      resolvePointer();
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
 
@@ -692,8 +706,10 @@ const DitherVeil = ({
       const minFade = floatMask ? 0 : 1.5 / 255;
       const fade = s.linger > 0 ? dt / s.linger : 1;
       maskUniforms.tPrev.value = masks[0].texture;
-      maskUniforms.uFrom.value = [brush.px, brush.py];
-      maskUniforms.uTo.value = [brush.x, brush.y];
+      maskUniforms.uFrom.value[0] = brush.px;
+      maskUniforms.uFrom.value[1] = brush.py;
+      maskUniforms.uTo.value[0] = brush.x;
+      maskUniforms.uTo.value[1] = brush.y;
       maskUniforms.uRadius.value = s.revealRadius * (0.45 + 0.55 * presence);
       maskUniforms.uSoftness.value = s.softness;
       maskUniforms.uStrength.value = presence;
@@ -704,49 +720,54 @@ const DitherVeil = ({
       brush.px = brush.x;
       brush.py = brush.y;
 
-      const cell = Math.max(1, Math.round(s.pixelSize * renderer.dpr));
-      if (image) {
-        viewUniforms.uCover.value = fitScale(
-          canvas.width,
-          canvas.height,
-          image.naturalWidth,
-          image.naturalHeight,
-          s.fit === 'contain'
-        );
-      }
-      let patternIndex = ORDERED[s.pattern] ?? 0;
-      if (KERNELS[s.pattern]) {
-        patternIndex = 0;
-        if (image && !diffusionBlocked) {
-          try {
-            updateDiffusion(cell, s);
-            patternIndex = 3;
-          } catch {
-            diffusionBlocked = true;
+      if (s !== appliedSettings || layoutVersion !== appliedLayout || image !== appliedImage) {
+        const cell = Math.max(1, Math.round(s.pixelSize * renderer.dpr));
+        if (image) {
+          viewUniforms.uCover.value = fitScale(
+            canvas.width,
+            canvas.height,
+            image.naturalWidth,
+            image.naturalHeight,
+            s.fit === 'contain'
+          );
+        }
+        let patternIndex = ORDERED[s.pattern] ?? 0;
+        if (KERNELS[s.pattern]) {
+          patternIndex = 0;
+          if (image && !diffusionBlocked) {
+            try {
+              updateDiffusion(cell, s);
+              patternIndex = 3;
+            } catch {
+              diffusionBlocked = true;
+            }
           }
         }
-      }
-      if (patternIndex === 1 && noiseTexture.width !== 64) {
-        noiseTexture.image = getBlueNoise();
-        noiseTexture.width = 64;
-        noiseTexture.height = 64;
-        noiseTexture.needsUpdate = true;
-      }
+        if (patternIndex === 1 && noiseTexture.width !== 64) {
+          noiseTexture.image = getBlueNoise();
+          noiseTexture.width = 64;
+          noiseTexture.height = 64;
+          noiseTexture.needsUpdate = true;
+        }
 
-      const texelsPerPixel = image ? (viewUniforms.uCover.value[0] * image.naturalWidth) / canvas.width : 1;
+        const texelsPerPixel = image ? (viewUniforms.uCover.value[0] * image.naturalWidth) / canvas.width : 1;
+        viewUniforms.uCell.value = cell;
+        viewUniforms.uLod.value = Math.log2(Math.max(cell * texelsPerPixel, 1));
+        viewUniforms.uPattern.value = patternIndex;
+        viewUniforms.uPalette.value = s.palette === 'rgb' ? 1 : 0;
+        viewUniforms.uLevels.value = Math.max(2, Math.round(s.levels));
+        viewUniforms.uInk.value = hexToRgb(s.inkColor);
+        viewUniforms.uPaper.value = hexToRgb(s.paperColor);
+        viewUniforms.uRimColor.value = hexToRgb(s.rimColor);
+        viewUniforms.uRim.value = Math.min(Math.max(s.rim, 0), 0.95);
+        viewUniforms.uContrast.value = s.contrast;
+        viewUniforms.uBrightness.value = s.brightness;
+        viewUniforms.uReverse.value = s.reverse ? 1 : 0;
+        appliedSettings = s;
+        appliedLayout = layoutVersion;
+        appliedImage = image;
+      }
       viewUniforms.tMask.value = masks[0].texture;
-      viewUniforms.uCell.value = cell;
-      viewUniforms.uLod.value = Math.log2(Math.max(cell * texelsPerPixel, 1));
-      viewUniforms.uPattern.value = patternIndex;
-      viewUniforms.uPalette.value = s.palette === 'rgb' ? 1 : 0;
-      viewUniforms.uLevels.value = Math.max(2, Math.round(s.levels));
-      viewUniforms.uInk.value = hexToRgb(s.inkColor);
-      viewUniforms.uPaper.value = hexToRgb(s.paperColor);
-      viewUniforms.uRimColor.value = hexToRgb(s.rimColor);
-      viewUniforms.uRim.value = Math.min(Math.max(s.rim, 0), 0.95);
-      viewUniforms.uContrast.value = s.contrast;
-      viewUniforms.uBrightness.value = s.brightness;
-      viewUniforms.uReverse.value = s.reverse ? 1 : 0;
       const intro = image ? Math.min(1, (now - introStart) / INTRO_MS) : 0;
       viewUniforms.uIntro.value = 1 - Math.pow(1 - intro, 2);
       renderer.render({ scene: viewMesh });
@@ -757,7 +778,7 @@ const DitherVeil = ({
     };
 
     const wake = () => {
-      if (raf || !visible) return;
+      if (raf || !visible || document.hidden) return;
       last = performance.now();
       raf = requestAnimationFrame(frame);
     };
@@ -781,14 +802,18 @@ const DitherVeil = ({
     };
     img.src = src;
 
-    const locate = (e: PointerEvent) => {
+    const resolvePointer = () => {
+      if (!pointerPending) return;
+      pointerPending = false;
       const rect = container.getBoundingClientRect();
-      pointer.x = e.clientX - rect.left;
-      pointer.y = e.clientY - rect.top;
+      pointer.x = clientX - rect.left;
+      pointer.y = clientY - rect.top;
       pointer.placed = true;
     };
     const onMove = (e: PointerEvent) => {
-      locate(e);
+      clientX = e.clientX;
+      clientY = e.clientY;
+      pointerPending = true;
       if (!pointer.inside) {
         pointer.inside = true;
         pointer.fresh = true;
@@ -802,6 +827,7 @@ const DitherVeil = ({
     const onDown = (e: PointerEvent) => {
       onMove(e);
       if (!settingsRef.current?.clickBurst || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      resolvePointer();
       bursts.push({ x: pointer.x, y: pointer.y, start: performance.now() });
       if (bursts.length > MAX_BURSTS) bursts.shift();
     };
@@ -818,9 +844,17 @@ const DitherVeil = ({
     resizeObserver.observe(container);
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
+      if (!visible) { cancelAnimationFrame(raf); raf = 0; }
       wake();
     });
     intersectionObserver.observe(container);
+    const syncVisibility = () => {
+      if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
+      else wake();
+    };
+    const syncMotion = () => { reducedMotion = motionPreference.matches; wake(); };
+    document.addEventListener('visibilitychange', syncVisibility);
+    motionPreference.addEventListener('change', syncMotion);
 
     layout();
     wake();
@@ -830,6 +864,8 @@ const DitherVeil = ({
       wakeRef.current = () => {};
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
+      document.removeEventListener('visibilitychange', syncVisibility);
+      motionPreference.removeEventListener('change', syncMotion);
       img.onload = null;
       container.removeEventListener('pointermove', onMove);
       container.removeEventListener('pointerenter', onMove);

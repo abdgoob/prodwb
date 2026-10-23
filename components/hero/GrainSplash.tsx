@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import styles from "./GrainSplash.module.css";
 
 type GrainSplashProps = { variant: "title" | "portrait" };
@@ -21,25 +24,40 @@ function particles(variant: GrainSplashProps["variant"]) {
 const grains = { title: particles("title"), portrait: particles("portrait") };
 
 export default function GrainSplash({ variant }: GrainSplashProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const observer = new ResizeObserver(([entry]) => {
+      // The old SVG animated in its 1000-unit viewBox before nonuniform scaling.
+      // Keep that coordinate system so paths, rotation and drift stay identical.
+      box.style.setProperty("--grain-scale-x", String(entry.contentRect.width / 1000));
+      box.style.setProperty("--grain-scale-y", String(entry.contentRect.height / 1000));
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
   return (
-    <svg
+    <div
+      ref={boxRef}
       aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 1000 1000"
-      preserveAspectRatio="none"
       className="pointer-events-none absolute -inset-[6%] h-[112%] w-[112%] overflow-visible text-[#cf3543]"
     >
+      <div className={styles.coordinateSpace}>
       {Array.from({ length: 6 }, (_, group) => (
-        <g
+        <div
           key={group}
           className={styles.drift}
           style={{ animationDelay: `-${(group * 1.7).toFixed(1)}s`, animationDuration: `${8 + group}s` }}
         >
+          <svg aria-hidden="true" focusable="false" width="1000" height="1000" viewBox="0 0 1000 1000" className={styles.particles}>
           {grains[variant].filter(({ index }) => index % 6 === group).map(({ index, x, y, radius, opacity }) => (
             <circle key={index} cx={x.toFixed(3)} cy={y.toFixed(3)} r={radius.toFixed(3)} opacity={opacity.toFixed(3)} fill="currentColor" />
           ))}
-        </g>
+          </svg>
+        </div>
       ))}
-    </svg>
+      </div>
+    </div>
   );
 }

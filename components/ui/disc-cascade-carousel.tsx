@@ -309,15 +309,15 @@ const CSS =
   ".dcc-slide{position:absolute;inset:0;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;" +
   "border-radius:50%;cursor:pointer;will-change:auto;transform-style:preserve-3d;backface-visibility:hidden;" +
   "-webkit-tap-highlight-color:transparent;outline:none}" +
-  ".dcc-root[data-motion] .dcc-slide[data-visible]{will-change:transform,opacity}" +
-  ".dcc-root[data-motion] .dcc-slide[data-visible] .dcc-disc{will-change:transform;contain:paint}" +
-  ".dcc-root[data-motion] .dcc-slide[data-visible] .dcc-roll,.dcc-root[data-motion] .dcc-slide[data-visible] .dcc-glint{will-change:transform}" +
-  ".dcc-tilt{position:absolute;inset:0;transform-style:preserve-3d;backface-visibility:hidden;transition:transform .5s cubic-bezier(.2,.7,.2,1)}" +
+  ".dcc-slide[data-prepared]{will-change:transform,opacity}" +
+  ".dcc-slide[data-prepared] .dcc-disc{will-change:transform;contain:paint}" +
+  ".dcc-slide[data-prepared] .dcc-roll,.dcc-slide[data-prepared] .dcc-glint{will-change:transform}" +
+  ".dcc-tilt{position:absolute;inset:0;transform:translateZ(0) rotateX(0deg) rotateY(0deg);transform-style:preserve-3d;backface-visibility:hidden;transition:transform .5s cubic-bezier(.2,.7,.2,1)}" +
   ".dcc-slide[data-active] .dcc-tilt{transform:translateZ(var(--dcc-lift,0px)) " +
   "rotateX(calc(var(--dcc-py,0) * -12deg)) rotateY(calc(var(--dcc-px,0) * 12deg))}" +
   ".dcc-slide[data-active]:hover{--dcc-lift:calc(var(--dcc-s) * .05)}" +
   ".dcc-slide:not([data-active]) .dcc-disc{filter:blur(2px) brightness(.58)}" +
-  ".dcc-slide:not([data-active]) .dcc-sheen,.dcc-slide:not([data-active]) .dcc-shade{display:none}" +
+  ".dcc-slide:not([data-active]) .dcc-sheen,.dcc-slide:not([data-active]) .dcc-shade{opacity:0}" +
   ".dcc-shade{position:absolute;inset:0;border-radius:50%;pointer-events:none;" +
   "transform:translate3d(0,7%,-18px) scale(.97);" +
   "background:radial-gradient(circle closest-side,transparent 30%,rgba(0,0,0,.2) 52%,rgba(0,0,0,.1) 80%,transparent 100%)}" +
@@ -325,7 +325,7 @@ const CSS =
   "-webkit-mask:radial-gradient(circle closest-side,transparent 16.6%,#000 17.1%);" +
   "mask:radial-gradient(circle closest-side,transparent 16.6%,#000 17.1%)}" +
   ".dcc-edge{transform:translateZ(-4px);background:linear-gradient(160deg,#d7d9dc,#8d9196 55%,#c4c7cb)}" +
-  ".dcc-disc{overflow:hidden;background:#cfd2d6;" +
+  ".dcc-disc{overflow:hidden;background:#cfd2d6;filter:blur(0px) brightness(1);" +
   "box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),inset 0 0 0 2px rgba(0,0,0,.08)}" +
   ".dcc-disc[data-baked]{-webkit-mask:none;mask:none;background:transparent}" +
   ".dcc-roll,.dcc-idle{position:absolute;inset:0;border-radius:50%}" +
@@ -674,7 +674,7 @@ export default function DiscCascadeCarousel({
     drag: null as null | { id: number; x0: number; pos0: number; moved: boolean; samples: { t: number; x: number }[] },
     clickBlock: false, wheel: 0, wheelAt: 0, stepAt: 0,
     moving: false, constrained: false, frameSamples: [] as number[],
-    visualActive: start,
+    visualActive: start, initialIndex: start,
     hoverRaf: 0, pointerX: 0, pointerY: 0,
     painted: [] as Array<{
       transform?: string
@@ -683,6 +683,7 @@ export default function DiscCascadeCarousel({
       visibility?: string
       roll?: string
       glint?: string
+      prepared?: boolean
     }>,
   }).current
   const cfg = React.useRef({ n, loop, spacing, rise, depth, yaw, fan, tilt, roll, bounce, duration })
@@ -711,10 +712,24 @@ export default function DiscCascadeCarousel({
   }
 
   const commitActive = (i: number) => {
+    syncVisualActive(i)
     if (i === cb.current.active) return
     cb.current.active = i
     setActive(i)
     cb.current.onIndexChange?.(i)
+  }
+
+  const syncVisualActive = (chosen: number) => {
+    if (chosen === E.visualActive) return
+    for (let i = 0; i < slideRefs.current.length; i++) {
+      const slide = slideRefs.current[i]
+      if (!slide) continue
+      slide.toggleAttribute("data-active", i === chosen)
+      if (i === chosen) slide.setAttribute("aria-current", "true")
+      else slide.removeAttribute("aria-current")
+      slide.tabIndex = i === chosen ? 0 : -1
+    }
+    E.visualActive = chosen
   }
 
   const styleFor = (i: number, a: number, b: number) => {
@@ -731,8 +746,12 @@ export default function DiscCascadeCarousel({
       zIndex: c.loop ? p.zIndex : 100 + i * 10,
       opacity: p.opacity,
       hidden: p.hidden || p.opacity <= 0,
+      prepared: Math.abs(offsetOf(i, a, c.n, c.loop)) <= 2.5,
     }
   }
+  // React seeds the elements once. Subsequent UI renders must not overwrite
+  // poses/visibility that the animation engine has already advanced.
+  const initialPoses = React.useRef<ReturnType<typeof styleFor>[]>([])
 
   const paint = () => {
     for (let i = 0; i < slideRefs.current.length; i++) {
@@ -740,16 +759,16 @@ export default function DiscCascadeCarousel({
       if (!el) continue
       const t = styleFor(i, E.a, E.b)
       const previous = E.painted[i] ?? {}
+      if (previous.prepared !== t.prepared) {
+        el.toggleAttribute("data-prepared", t.prepared)
+        previous.prepared = t.prepared
+      }
       const hidden = t.hidden
       const visibility = hidden ? "hidden" : ""
       if (previous.visibility !== visibility) {
         el.style.visibility = visibility
         el.toggleAttribute("data-visible", !hidden)
         previous.visibility = visibility
-      }
-      if (hidden) {
-        E.painted[i] = previous
-        continue
       }
       const zIndex = "" + t.zIndex
       const opacity = t.opacity < 1 ? t.opacity.toFixed(3) : ""
@@ -858,18 +877,7 @@ export default function DiscCascadeCarousel({
       E.a = E.b = E.target = position
       E.va = E.vb = 0
       paint()
-      const chosen = indexAt(position, n, false)
-      if (chosen !== E.visualActive) {
-        for (let i = 0; i < slideRefs.current.length; i++) {
-          const slide = slideRefs.current[i]
-          if (!slide) continue
-          slide.toggleAttribute("data-active", i === chosen)
-          if (i === chosen) slide.setAttribute("aria-current", "true")
-          else slide.removeAttribute("aria-current")
-          slide.tabIndex = i === chosen ? 0 : -1
-        }
-        E.visualActive = chosen
-      }
+      syncVisualActive(indexAt(position, n, false))
     }
     const settle = () => {
       if (observedVersion !== version) {
@@ -960,6 +968,13 @@ export default function DiscCascadeCarousel({
     cancelAnimationFrame(E.raf)
     cancelAnimationFrame(E.hoverRaf)
   }, [E])
+
+  React.useEffect(() => {
+    // Eager loading alone does not guarantee decoding of visibility:hidden images.
+    rootRef.current?.querySelectorAll<HTMLImageElement>(".dcc-idle img").forEach((image) => {
+      void image.decode().catch(() => undefined)
+    })
+  }, [items])
 
   React.useEffect(() => {
     if (!fontHref) return
@@ -1126,7 +1141,7 @@ export default function DiscCascadeCarousel({
   const onSlideClick = (i: number) => {
     if (E.clickBlock) return
     setStopped(true)
-    if (i === active) onSelect?.(items[i], i)
+    if (i === E.visualActive) onSelect?.(items[i], i)
     else goTo(i)
   }
 
@@ -1251,9 +1266,9 @@ export default function DiscCascadeCarousel({
 
       <div ref={stageRef} className="dcc-stage">
         {items.map((item, i) => {
-          const t = styleFor(i, E.a, E.b)
+          const t = initialPoses.current[i] ?? (initialPoses.current[i] = styleFor(i, E.initialIndex, E.initialIndex))
           const bakedFace = bakeMode ? undefined : item.faceSrc
-          const isActive = i === active
+          const isActive = i === E.initialIndex
           const pal = item.palette ?? PALETTES[i % PALETTES.length]
           const ink = item.ink ?? (item.src ? "#ffffff" : inkFor(pal[0]))
           const id = uid + "d" + i
@@ -1267,6 +1282,7 @@ export default function DiscCascadeCarousel({
               className="dcc-slide"
               data-active={isActive ? "" : undefined}
               data-visible={!t.hidden ? "" : undefined}
+              data-prepared={t.prepared ? "" : undefined}
               tabIndex={isActive ? 0 : -1}
               aria-roledescription="slide"
               aria-label={i + 1 + " of " + n + ": " + item.title}

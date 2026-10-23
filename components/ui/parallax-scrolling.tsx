@@ -54,19 +54,15 @@ export function ParallaxComponent({ children }: { children: ReactNode }) {
           const overCarousel = target instanceof Element && target.closest(".dcc-root");
           return !(overCarousel && Math.abs(deltaX) > Math.abs(deltaY));
         },
-        prevent: (node) => {
-          return node.hasAttribute("data-works-wheel-stage") &&
-            node.getAttribute("data-scroll-driven") !== "true" &&
-            node.getBoundingClientRect().top <= 1;
-        },
       });
       const tick = (time: number) => lenis.raf(time * 1000);
       const seek = (event: Event) => {
         event.preventDefault();
-        const detail = (event as CustomEvent<number | { top: number; smooth: boolean }>).detail;
+        const detail = (event as CustomEvent<number | { top: number; smooth: boolean; duration?: number }>).detail;
         const top = typeof detail === "number" ? detail : detail.top;
         const smooth = typeof detail === "number" ? false : detail.smooth;
-        lenis.scrollTo(top, { immediate: !smooth, duration: smooth ? 0.9 : undefined, force: true });
+        const duration = typeof detail === "number" ? 0.9 : detail.duration ?? 0.9;
+        lenis.scrollTo(top, { immediate: !smooth, duration: smooth ? duration : undefined, force: true });
       };
       window.addEventListener(PAGE_SCROLL_SEEK, seek);
       lenis.on("scroll", ScrollTrigger.update);

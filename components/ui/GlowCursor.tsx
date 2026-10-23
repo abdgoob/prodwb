@@ -16,6 +16,7 @@ export interface GlowCursorProps extends Omit<HTMLAttributes<HTMLDivElement>, 'c
   trailLength?: number;
   trailWidth?: number;
   trailTaper?: number;
+  /** Tail smoothing; the leading point stays attached to the pointer. */
   followSpeed?: number;
   glowIntensity?: number;
   glowSpread?: number;
@@ -248,7 +249,6 @@ const GlowCursor = ({
     const pointData = Array(MAX_POINTS * 2).fill(0);
     const points = Array.from({ length: MAX_POINTS }, () => ({ x: 0, y: 0 }));
     const target = { x: 0, y: 0 };
-    const head = { x: 0, y: 0 };
 
     const program = new Program(gl, {
       vertex: VERTEX_SHADER,
@@ -298,8 +298,6 @@ const GlowCursor = ({
     const initializeTrail = (x: number, y: number) => {
       target.x = x;
       target.y = y;
-      head.x = x;
-      head.y = y;
       for (const point of points) {
         point.x = x;
         point.y = y;
@@ -309,9 +307,9 @@ const GlowCursor = ({
     };
 
     const updatePointer = (event: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = clamp(event.clientX - rect.left, 0, rect.width);
-      const y = clamp(rect.height - (event.clientY - rect.top), 0, rect.height);
+      // The canvas is fixed at the viewport origin; resize() already caches its size.
+      const x = clamp(event.clientX, 0, width);
+      const y = clamp(height - event.clientY, 0, height);
       if (!initialized) initializeTrail(x, y);
       target.x = x;
       target.y = y;
@@ -341,13 +339,11 @@ const GlowCursor = ({
       lastFrameTime = now;
 
       if (initialized) {
-        const headEase = 1 - Math.pow(1 - clamp(config.followSpeed, 0.01, 0.99), delta);
         const chainBase = clamp(0.28 + config.followSpeed * 0.35, 0.08, 0.92);
         const chainEase = 1 - Math.pow(1 - chainBase, delta);
-        head.x += (target.x - head.x) * headEase;
-        head.y += (target.y - head.y) * headEase;
-        points[0].x = head.x;
-        points[0].y = head.y;
+        // Only the tail eases. Easing the head added several frames of input lag.
+        points[0].x = target.x;
+        points[0].y = target.y;
 
         for (let i = 1; i < MAX_POINTS; i++) {
           points[i].x += (points[i - 1].x - points[i].x) * chainEase;
