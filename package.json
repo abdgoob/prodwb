@@ -7,7 +7,9 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "eslint",
-		"verify:carousel": "node scripts/verify-carousel-performance.cjs"
+		"verify:carousel": "node scripts/verify-carousel-performance.cjs",
+		"verify:beats": "node scripts/verify-beats.cjs",
+		"verify:crossfade": "node scripts/verify-crossfade.cjs"
 	},
 	"dependencies": {
 		"clsx": "^2.1.1",

@@ -42,7 +42,7 @@ const assert=require('node:assert/strict');
    await seekUnit(0);
    await page.waitForFunction(()=>document.querySelector('.dcc-count b')?.textContent==='01');
    await page.screenshot({path:`.next/carousel-face-${width}.png`});
-   await page.getByRole('button',{name:'Next testimonial'}).click();
+   await page.getByRole('button',{name:'Next CD'}).click();
    await page.waitForFunction(()=>document.querySelector('.dcc-count b')?.textContent==='02');
    assert.equal(await page.locator('.dcc-count b').textContent(),'02');
    await root.press('ArrowLeft');

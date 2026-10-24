@@ -6,6 +6,7 @@
 import * as React from "react"
 import Image from "next/image"
 import { frame as motionFrame, cancelFrame, type MotionValue } from "framer-motion"
+import BeatPlayer, { type BeatPlayerHandle } from "@/components/works/BeatPlayer"
 
 /**
  * Disc Cascade Carousel — a film catalogue told in discs. Each title is a
@@ -53,6 +54,9 @@ export type DiscCascadeItem = {
   src?: string
   /** Precomposed transparent disc face; keeps artwork and print in one moving texture. */
   faceSrc?: string
+  audioSrc?: string
+  /** Runtime in seconds, displayed before audio metadata loads. */
+  duration?: number
   alt?: string
   /** Generated label pattern. Defaults by position. */
   pattern?: DiscPattern
@@ -667,6 +671,7 @@ export default function DiscCascadeCarousel({
   const slideRefs = React.useRef([] as (HTMLButtonElement | null)[])
   const rollRefs = React.useRef([] as (HTMLSpanElement | null)[])
   const glintRefs = React.useRef([] as (HTMLSpanElement | null)[])
+  const playerRef = React.useRef<BeatPlayerHandle>(null)
 
   const E = React.useRef({
     a: start, va: 0, b: start, vb: 0, target: start,
@@ -721,6 +726,8 @@ export default function DiscCascadeCarousel({
 
   const syncVisualActive = (chosen: number) => {
     if (chosen === E.visualActive) return
+    const selected = items[chosen]
+    if (selected?.audioSrc) playerRef.current?.select({ src: selected.audioSrc, title: selected.title, duration: selected.duration })
     for (let i = 0; i < slideRefs.current.length; i++) {
       const slide = slideRefs.current[i]
       if (!slide) continue
@@ -1123,6 +1130,7 @@ export default function DiscCascadeCarousel({
       return
     }
     if ((e.target as Element).closest("[data-dcc-menu]")) return
+    if ((e.target as Element).closest("[data-dcc-player]")) return
     let handled = true
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       if (!loop && E.target >= n - 1) onEndReached?.()
@@ -1141,7 +1149,10 @@ export default function DiscCascadeCarousel({
   const onSlideClick = (i: number) => {
     if (E.clickBlock) return
     setStopped(true)
-    if (i === E.visualActive) onSelect?.(items[i], i)
+    if (i === E.visualActive) {
+      onSelect?.(items[i], i)
+      if (i === active && items[i].audioSrc) playerRef.current?.toggle()
+    }
     else goTo(i)
   }
 
@@ -1243,12 +1254,12 @@ export default function DiscCascadeCarousel({
       ) : null}
 
       {details && current ? (
-        <div className="dcc-head" key={"h" + active} aria-hidden="true">
-          <h2 className="dcc-title dcc-in" style={{ fontFamily: serif }}>
+        <div className="dcc-head" aria-hidden={current.audioSrc ? undefined : true}>
+          <h2 key={"h" + active} className="dcc-title dcc-in" style={{ fontFamily: serif }}>
             {current.title}
           </h2>
           {current.credits?.length ? (
-            <dl className="dcc-dl">
+            <dl key={"d" + active} className="dcc-dl">
               {current.credits.map((c, k) => (
                 <div className="dcc-row dcc-in" key={k} style={{ ["--i" as string]: k + 1 } as React.CSSProperties}>
                   <dt>{c.label}</dt>
@@ -1261,6 +1272,8 @@ export default function DiscCascadeCarousel({
               ))}
             </dl>
           ) : null}
+          {current.audioSrc ? <BeatPlayer ref={playerRef} src={current.audioSrc} title={current.title} duration={current.duration}
+            tracks={items.flatMap(item => item.audioSrc ? [{ src: item.audioSrc, title: item.title, duration: item.duration }] : [])} /> : null}
         </div>
       ) : null}
 
@@ -1355,13 +1368,13 @@ export default function DiscCascadeCarousel({
 
       {controls && n > 1 ? (
         <div className="dcc-ctl" data-dcc-ui="">
-          <button type="button" className="dcc-btn" aria-label="Previous testimonial" disabled={atStart} onClick={() => { setStopped(true); step(-1) }}>
+          <button type="button" className="dcc-btn" aria-label="Previous CD" disabled={atStart} onClick={() => { setStopped(true); step(-1) }}>
             <Arrow dir={-1} />
           </button>
           <span className="dcc-count" aria-hidden="true">
             <b>{pad(active + 1)}</b> / {pad(n)}
           </span>
-          <button type="button" className="dcc-btn" aria-label={atEnd && onEndReached ? "Continue to reviews" : "Next testimonial"} disabled={atEnd && !onEndReached} onClick={() => { setStopped(true); if (atEnd) onEndReached?.(); else step(1) }}>
+          <button type="button" className="dcc-btn" aria-label={atEnd && onEndReached ? "Continue to reviews" : "Next CD"} disabled={atEnd && !onEndReached} onClick={() => { setStopped(true); if (atEnd) onEndReached?.(); else step(1) }}>
             <Arrow dir={1} />
           </button>
         </div>
@@ -1369,7 +1382,7 @@ export default function DiscCascadeCarousel({
 
       <div className="dcc-sr" aria-live="polite" aria-atomic="true">
         {current
-          ? "Testimonial " + (active + 1) + " of " + n + ": " + current.title + (year ? ", " + lines(year.value)[0] : "") + ". " + quotes.map((q) => q.source + ": " + q.quote).join(" ")
+          ? "CD " + (active + 1) + " of " + n + ": " + current.title + (year ? ", " + lines(year.value)[0] : "") + ". " + quotes.map((q) => q.source + ": " + q.quote).join(" ")
           : ""}
       </div>
     </div>

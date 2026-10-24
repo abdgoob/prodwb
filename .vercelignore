@@ -1,0 +1,8 @@
+# Keep private masters, local credentials, and generated tooling out of deployments.
+WBMM/
+.env*
+.next/
+.git/
+node_modules/
+coverage/
+*.tsbuildinfo

@@ -3,12 +3,16 @@ const { chromium } = require("playwright");
 const path = require("node:path");
 
 (async () => {
+  const prefix = process.env.BAKE_FACE_PREFIX || "face";
+  if (!/^[a-z0-9-]+$/.test(prefix)) throw new Error("Invalid face filename prefix");
   const browser = await chromium.launch({ headless: true, channel: "chrome" });
   try {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1600 }, deviceScaleFactor: 1 });
     await page.goto("http://localhost:3000/?bake-disc-faces", { waitUntil: "domcontentloaded" });
     const skip = page.getByRole("button", { name: "Skip intro" });
-    if (await skip.isVisible()) await skip.click({ force: true });
+    await page.locator('[aria-label="PRODWB audio introduction"][data-artwork-ready="true"]').waitFor();
+    await skip.click();
+    await page.locator('[aria-label="PRODWB audio introduction"]').waitFor({ state: 'detached' });
     await page.locator(".dcc-idle").first().waitFor();
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -35,7 +39,7 @@ const path = require("node:path");
         document.body.style.background = 'transparent';
         document.body.append(clone);
       }, i);
-      await page.screenshot({ path: path.join(__dirname, '..', 'public', 'works', `face-${i + 1}.png`),
+      await page.screenshot({ path: path.join(__dirname, '..', 'public', 'works', `${prefix}-${i + 1}.png`),
         clip: { x: 0, y: 0, width: 1200, height: 1200 }, omitBackground: true });
     }
   } finally { await browser.close(); }

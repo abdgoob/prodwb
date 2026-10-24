@@ -62,7 +62,7 @@ const assert = require('node:assert/strict');
       else { await page.mouse.move(600, 400); await page.mouse.wheel(0, 300); }
       await page.waitForFunction(() => document.querySelector('#testimonials').getBoundingClientRect().left < innerWidth - 20);
       assert.equal(await page.locator('.dcc-count b').textContent(), '06', 'Transition looped past CD six');
-      for (const asset of ['/matrix-rain-worker.js', '/hero-artist.jpg', '/audio/prodwbtag.mp3', '/_next/image?url=%2Fworks%2Fface-6.png&w=640&q=90']) {
+      for (const asset of ['/matrix-rain-worker.js', '/hero-artist.jpg', '/audio/prodwbtag.mp3', '/_next/image?url=%2Fworks%2Fbeat-face-6.png&w=640&q=90']) {
         const response = await context.request.get(base + asset);
         assert.ok(response.ok(), `${response.status()} ${asset}`);
       }

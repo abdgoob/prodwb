@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import localFont from "next/font/local";
 import type { MotionValue } from "framer-motion";
+import { featuredBeats } from "@/lib/beats";
 import type {
-  DiscCascadeItem,
   DiscPerformanceState,
 } from "@/components/ui/disc-cascade-carousel";
 
@@ -16,100 +16,14 @@ const DiscCascadeCarousel = dynamic(() => import("@/components/ui/disc-cascade-c
   loading: () => <div className="h-svh" aria-hidden="true" />,
 });
 
-// Fictional placeholder voices; replace with approved client quotes before publishing.
-const voices: DiscCascadeItem[] = [
-  {
-    title: "Mara Vex",
-    label: "Mara",
-    src: "/works/cover-1.png",
-    faceSrc: "/works/face-1.png",
-    alt: "Mara Vex",
-    credits: [
-      { label: "Role", value: "Vocalist" },
-      { label: "Project", value: "BEAT 01" },
-      { label: "Year", value: "2024" },
-    ],
-    reviews: [
-      { source: "Mara Vex", quote: "The bounce hit before I even wrote a word", stars: 5 },
-    ],
-  },
-  {
-    title: "Kade Hollow",
-    label: "Kade",
-    src: "/works/cover-2.png",
-    faceSrc: "/works/face-2.png",
-    alt: "Kade Hollow",
-    labelStyle: "block",
-    credits: [
-      { label: "Role", value: "MC" },
-      { label: "Project", value: "BEAT 02" },
-      { label: "Year", value: "2024" },
-    ],
-    reviews: [
-      { source: "Kade Hollow", quote: "Cinematic without losing the pocket", stars: 5 },
-    ],
-  },
-  {
-    title: "Lumen Nyx",
-    label: "Lumen",
-    src: "/works/cover-3.png",
-    faceSrc: "/works/face-3.png",
-    alt: "Lumen Nyx",
-    credits: [
-      { label: "Role", value: "Artist" },
-      { label: "Project", value: "BEAT 03" },
-      { label: "Year", value: "2025" },
-    ],
-    reviews: [
-      { source: "Lumen Nyx", quote: "Red light, grain, and a melody I still hear", stars: 5 },
-    ],
-  },
-  {
-    title: "Rio Ash",
-    label: "Rio",
-    src: "/works/cover-4.png",
-    faceSrc: "/works/face-4.png",
-    alt: "Rio Ash",
-    credits: [
-      { label: "Role", value: "Songwriter" },
-      { label: "Project", value: "BEAT 04" },
-      { label: "Year", value: "2025" },
-    ],
-    reviews: [
-      { source: "Rio Ash", quote: "Dark enough to live in, wide enough to sing", stars: 4 },
-    ],
-  },
-  {
-    title: "Sable Wren",
-    label: "Sable",
-    src: "/works/cover-5.png",
-    faceSrc: "/works/face-5.png",
-    alt: "Sable Wren",
-    labelStyle: "block",
-    credits: [
-      { label: "Role", value: "Performer" },
-      { label: "Project", value: "BEAT 05" },
-      { label: "Year", value: "2025" },
-    ],
-    reviews: [
-      { source: "Sable Wren", quote: "Felt like the stage was already built", stars: 5 },
-    ],
-  },
-  {
-    title: "Noa Trace",
-    label: "Noa",
-    src: "/works/cover-6.png",
-    faceSrc: "/works/face-6.png",
-    alt: "Noa Trace",
-    credits: [
-      { label: "Role", value: "Vocalist" },
-      { label: "Project", value: "BEAT 06" },
-      { label: "Year", value: "2026" },
-    ],
-    reviews: [
-      { source: "Noa Trace", quote: "Burgundy nights. Every bar had a face", stars: 5 },
-    ],
-  },
+// Existing placeholder reviews; replace with approved client quotes before publishing.
+const reviews = [
+  { source: "Mara Vex", quote: "The bounce hit before I even wrote a word" },
+  { source: "Kade Hollow", quote: "Cinematic without losing the pocket" },
+  { source: "Lumen Nyx", quote: "Red light, grain, and a melody I still hear" },
+  { source: "Rio Ash", quote: "Dark enough to live in, wide enough to sing" },
+  { source: "Sable Wren", quote: "Felt like the stage was already built" },
+  { source: "Noa Trace", quote: "Burgundy nights. Every bar had a face" },
 ];
 
 export default function TestimonialsSection({
@@ -148,10 +62,10 @@ export default function TestimonialsSection({
       className={`${beatsFont.variable} relative isolate h-svh w-screen shrink-0 overflow-hidden [contain:layout_paint]`}>
       {ready ? (
         <DiscCascadeCarousel
-          items={voices}
+          items={featuredBeats}
           brand="PRODWB"
           nav={[]}
-          indexLabel="Voices"
+          indexLabel="Tracks"
           defaultIndex={0}
           loop={false}
           reviews={false}
@@ -167,7 +81,7 @@ export default function TestimonialsSection({
           sans="var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif"
           display="var(--font-beats), var(--font-cybrok), sans-serif"
           fontHref={null}
-          hint="Scroll to explore · Drag · ← →"
+          hint="Scroll to explore · Click CD to listen"
           ariaLabel="CD carousel"
           onEndReached={onEndReached}
           scrollPosition={scrollPosition}
@@ -181,12 +95,12 @@ export default function TestimonialsSection({
       <p className="mb-4 text-xs uppercase tracking-[0.4em] text-[#cd404c]">Voices</p>
       <h2 id="testimonials-title" className="mb-12 font-[family-name:var(--font-beats)] text-[clamp(2rem,8vw,4.5rem)] leading-tight uppercase">Testimonials & reviews</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {voices.map((voice) => voice.reviews?.map((review) => (
-          <figure key={voice.title} className="flex min-h-48 flex-col justify-between border border-white/15 bg-white/[0.035] p-6">
+        {reviews.map((review) => (
+          <figure key={review.source} className="flex min-h-48 flex-col justify-between border border-white/15 bg-white/[0.035] p-6">
             <blockquote className="text-lg leading-relaxed">“{review.quote}”</blockquote>
             <figcaption className="mt-8 text-sm text-[#cd9ba0]">{review.source}</figcaption>
           </figure>
-        )))}
+        ))}
       </div>
     </section>
     </>

@@ -55,7 +55,8 @@ export default function WorksSection() {
         }}
       >
         <div ref={runwayRef} className="relative" style={{ height: `${(SCROLL_END + 1) * 100}svh` }}>
-        <div className="sticky top-0 h-svh overflow-hidden">
+        {/* Motion owns horizontal travel; native focus scrolling must not offset this viewport. */}
+        <div className="sticky top-0 h-svh overflow-clip">
         <motion.div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
